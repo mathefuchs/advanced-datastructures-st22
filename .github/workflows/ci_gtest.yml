@@ -1,0 +1,35 @@
+name: Run gtests
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Update gtest submodule
+      run: git submodule update --init --recursive
+
+    - name: Configure CMake
+      run: cmake -S $GITHUB_WORKSPACE -B ${{runner.workspace}}/build -DCMAKE_BUILD_TYPE=RELEASE
+
+    - name: Build project
+      working-directory: ${{runner.workspace}}/build
+      run: cmake --build . -j
+
+    - name: Run gtests
+      working-directory: ${{runner.workspace}}/build
+      run: GTEST_OUTPUT=xml:test-results/ GTEST_COLOR=1 ./advanced-datastructures-st22/tests/ads_test -V
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: test_results_xml
+        path: ${{runner.workspace}}/build/test-results/**/*.xml
