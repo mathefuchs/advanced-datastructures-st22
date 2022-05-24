@@ -170,6 +170,14 @@ class SimpleBitVector {
   std::vector<BlockType> blocks;
 };
 
+/**
+ * @brief Define block size to be used in other compilation units.
+ *
+ * @tparam BlockType The block type.
+ */
+template <class BlockType>
+constexpr size_t SimpleBitVector<BlockType>::BLOCK_SIZE;
+
 }  // namespace bv
 }  // namespace ads
 
