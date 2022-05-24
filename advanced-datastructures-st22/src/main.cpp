@@ -46,8 +46,8 @@ int main(int argc, char **argv) {
   }
 
   // Check mode
-  bool bv = argv[1] == "bv";
-  bool bp = argv[1] == "bp";
+  bool bv = strcmp(argv[1], "bv") == 0;
+  bool bp = bv ? false : strcmp(argv[1], "bp") == 0;
   if (!bv && !bp) {
     ads::util::malformed_input();
   }

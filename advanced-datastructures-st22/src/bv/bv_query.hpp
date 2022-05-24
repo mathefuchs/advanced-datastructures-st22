@@ -9,11 +9,12 @@
 #include <string>
 #include <vector>
 
-#include "ds/bitvector.hpp"
+#include "bv/simple_bitvector.hpp"
 #include "util.hpp"
 
 namespace ads {
-namespace bv_query {
+namespace bv {
+namespace query {
 
 /**
  * @brief Type of bit-vector queries.
@@ -159,7 +160,7 @@ struct BVQuery {
  * @brief Represents a bit-vector problem instance.
  */
 struct BVProblemInstance {
-  ds::BitVector bv;
+  SimpleBitVector<uint64_t> bv;
   std::vector<BVQuery> queries;
 };
 
@@ -180,7 +181,7 @@ static inline BVProblemInstance parse_bv_input(
     size_t initial_size = std::stoul(line);
 
     // Create problem instance object
-    BVProblemInstance instance{ds::BitVector(initial_size), {}};
+    BVProblemInstance instance{SimpleBitVector<uint64_t>(initial_size), {}};
 
     // Parse initial bit-vector
     size_t i = 0;
@@ -226,16 +227,18 @@ static inline BVProblemInstance parse_bv_input(
     }
 
     // Return problem instance
+    instance.queries.shrink_to_fit();
     return instance;
   } else {
     std::cerr << "Could not open file \"" << input_file_name << "\"."
               << std::endl;
     ads::util::malformed_input();
-    return {ds::BitVector(0), {}};
+    return {SimpleBitVector<uint64_t>(0), {}};
   }
 }
 
-}  // namespace bv_query
+}  // namespace query
+}  // namespace bv
 }  // namespace ads
 
 #endif
