@@ -112,7 +112,6 @@ TEST(ads_test_suite, simple_bitvector_performance) {
             << "SimpleBitVector<uint32_t>: " << bitvector_32_time << "ms\n"
             << "SimpleBitVector<uint64_t>: " << bitvector_64_time << "ms\n"
             << "--------------------------------------------" << std::endl;
-  ASSERT_GT(vector_bool_time, bitvector_64_time);
 }
 
 }  // namespace ads_test
