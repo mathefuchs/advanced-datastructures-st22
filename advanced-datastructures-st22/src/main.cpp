@@ -10,15 +10,6 @@
 #include "util.hpp"
 
 /**
- * Output help text and exit program with error code EXIT_FAILURE.
- */
-static inline void malformed_input() {
-  std::cerr << "Required> ./ads_programm_a [bv|bp] eingabe_datei ausgabe_datei"
-            << std::endl;
-  std::exit(EXIT_FAILURE);
-}
-
-/**
  * Output the computation's results.
  *
  * @param preproc_start The preprocessing start timestamp.
@@ -50,8 +41,15 @@ static inline void output_results(
  */
 int main(int argc, char **argv) {
   // Check number of cli args
-  if (argc != 3) {
-    malformed_input();
+  if (argc != 4) {
+    ads::util::malformed_input();
+  }
+
+  // Check mode
+  bool bv = argv[1] == "bv";
+  bool bp = argv[1] == "bp";
+  if (!bv && !bp) {
+    ads::util::malformed_input();
   }
 
   // TODO
