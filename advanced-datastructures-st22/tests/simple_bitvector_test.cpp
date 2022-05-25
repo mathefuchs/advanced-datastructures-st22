@@ -270,4 +270,52 @@ TEST(ads_test_suite, simple_bitvector_delete_full_test) {
   }
 }
 
+TEST(ads_test_suite, simple_bitvector_rank_test) {
+  ads::bv::SimpleBitVector<uint64_t> bv(1000, 2000);
+  bv.set(0);
+  bv.set(1);
+  bv.set(50);
+  bv.set(63);
+  bv.set(64);
+  bv.set(65);
+  bv.set(100);
+  bv.set(200);
+  bv.set(300);
+  bv.set(800);
+
+  ASSERT_EQ(bv.size_in_bits(), 1000);
+  ASSERT_EQ(bv.size_in_blocks(), 32);
+
+  ASSERT_EQ(bv.rank_one(1), 1);
+  ASSERT_EQ(bv.rank_zero(1), 0);
+  ASSERT_EQ(bv.rank_one(2), 2);
+  ASSERT_EQ(bv.rank_zero(2), 0);
+  ASSERT_EQ(bv.rank_one(500), 9);
+  ASSERT_EQ(bv.rank_zero(500), 491);
+}
+
+TEST(ads_test_suite, simple_bitvector_select_test) {
+  ads::bv::SimpleBitVector<uint8_t> bv(1000, 2000);
+  bv.set(0);
+  bv.set(1);
+  bv.set(50);
+  bv.set(63);
+  bv.set(64);
+  bv.set(65);
+  bv.set(100);
+  bv.set(200);
+  bv.set(300);
+  bv.set(800);
+
+  ASSERT_EQ(bv.size_in_bits(), 1000);
+  ASSERT_EQ(bv.size_in_blocks(), 250);
+
+  ASSERT_EQ(bv.select_one(1), 0);
+  ASSERT_EQ(bv.select_zero(1), 2);
+  ASSERT_EQ(bv.select_one(2), 1);
+  ASSERT_EQ(bv.select_zero(2), 3);
+  ASSERT_EQ(bv.select_one(9), 300);
+  ASSERT_EQ(bv.select_zero(50), 52);
+}
+
 }  // namespace ads_test

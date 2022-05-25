@@ -14,18 +14,50 @@ namespace bv {
  */
 template <class BlockType>
 class SimpleBitVector {
+ private:
+  size_t current_size_bits;
+  std::vector<BlockType> blocks;
+
+  /**
+   * @brief Use built-in popcount function with correct width.
+   *
+   * @param block The block.
+   * @return The popcount.
+   */
+  inline size_t popcount(BlockType block) {
+    if constexpr (sizeof(BlockType) == sizeof(long)) {
+      return __builtin_popcountl(block);
+    } else if constexpr (sizeof(BlockType) == sizeof(long long)) {
+      return __builtin_popcountll(block);
+    } else {
+      return __builtin_popcount(block);
+    }
+  }
+
  public:
   static constexpr size_t BLOCK_SIZE = 8ul * sizeof(BlockType);
 
   /**
    * @brief Constructs a new bit vector.
    *
-   * @param initial_size The initial size.
+   * @param initial_size The initial size in bits.
+   * @param capacity The capacity in bits.
+   */
+  SimpleBitVector(size_t initial_size, size_t capacity)
+      : current_size_bits(initial_size),
+        blocks(
+            capacity >= initial_size
+                ? (capacity == 0 ? 0 : (capacity - 1) / BLOCK_SIZE + 1)
+                : (initial_size == 0 ? 0 : (initial_size - 1) / BLOCK_SIZE + 1),
+            0) {}
+
+  /**
+   * @brief Constructs a new bit vector.
+   *
+   * @param initial_size The initial size in bits.
    */
   explicit SimpleBitVector(size_t initial_size)
-      : current_size_bits(initial_size),
-        blocks(initial_size == 0 ? 0 : (initial_size - 1) / BLOCK_SIZE + 1, 0) {
-  }
+      : SimpleBitVector(initial_size, initial_size) {}
 
   /**
    * @brief Accesses the bit vector at index i.
@@ -101,7 +133,7 @@ class SimpleBitVector {
    */
   inline void insert(size_t i, bool value) {
     // Update counters
-    if (current_size_bits % BLOCK_SIZE == 0) {
+    if (current_size_bits == BLOCK_SIZE * blocks.size()) {
       blocks.push_back(0);
     }
     ++current_size_bits;
@@ -160,14 +192,104 @@ class SimpleBitVector {
     reset(last_block_pos);
 
     // Delete empty blocks
-    if (current_size_bits % BLOCK_SIZE == 0) {
+    if (!blocks.empty() &&
+        current_size_bits == BLOCK_SIZE * (blocks.size() - 1)) {
       blocks.pop_back();
     }
   }
 
- private:
-  size_t current_size_bits;
-  std::vector<BlockType> blocks;
+  /**
+   * @brief Number of ones until position i (exclusive).
+   *
+   * @param i The position.
+   * @return Number of ones.
+   */
+  inline size_t rank_one(size_t i) {
+    const size_t block_num = i / BLOCK_SIZE;
+    size_t rank = popcount(blocks[block_num] & ~(~0ul << (i % BLOCK_SIZE)));
+    for (size_t block = 0; block < block_num; ++block) {
+      rank += popcount(blocks[block]);
+    }
+    return rank;
+  }
+
+  /**
+   * @brief Number of zeros until position i (exclusive).
+   *
+   * @param i The position.
+   * @return Number of zeros.
+   */
+  inline size_t rank_zero(size_t i) { return i - rank_one(i); }
+
+  /**
+   * @brief Get the position of the i-th one.
+   *
+   * @param i The i-th one (one-based index).
+   * @return The position.
+   */
+  inline size_t select_one(size_t i) {
+    // Determine which block to scan
+    size_t select = i;
+    size_t block_idx = 0;
+    for (; block_idx < blocks.size(); ++block_idx) {
+      const auto num_ones = popcount(blocks[block_idx]);
+      if (select > num_ones) {
+        select -= num_ones;
+      } else {
+        break;
+      }
+    }
+
+    // Scan identified block
+    size_t block = blocks[block_idx];
+    size_t block_pos = BLOCK_SIZE * block_idx;
+    for (;; ++block_pos, block >>= 1) {
+      if (block & 1ull) {
+        --select;
+
+        if (select == 0) {
+          break;
+        }
+      }
+    }
+
+    return block_pos;
+  }
+
+  /**
+   * @brief Get the position of the i-th zero.
+   *
+   * @param i The i-th zero (one-based index).
+   * @return The position.
+   */
+  inline size_t select_zero(size_t i) {
+    // Determine which block to scan
+    size_t select = i;
+    size_t block_idx = 0;
+    for (; block_idx < blocks.size(); ++block_idx) {
+      const auto num_zeros = BLOCK_SIZE - popcount(blocks[block_idx]);
+      if (select > num_zeros) {
+        select -= num_zeros;
+      } else {
+        break;
+      }
+    }
+
+    // Scan identified block
+    size_t block = blocks[block_idx];
+    size_t block_pos = BLOCK_SIZE * block_idx;
+    for (;; ++block_pos, block >>= 1) {
+      if ((block & 1ull) == 0) {
+        --select;
+
+        if (select == 0) {
+          break;
+        }
+      }
+    }
+
+    return block_pos;
+  }
 };
 
 /**
