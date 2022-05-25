@@ -136,27 +136,31 @@ class SimpleBitVector {
     if (current_size_bits == BLOCK_SIZE * blocks.size()) {
       blocks.push_back(0);
     }
-    ++current_size_bits;
 
-    // Shift everything right of inserted position in block of i
-    const size_t block_num = i / BLOCK_SIZE;
-    const size_t block_pos = i % BLOCK_SIZE;
-    BlockType last_block_value =
-        (*this)[block_num * BLOCK_SIZE + BLOCK_SIZE - 1];
-    const BlockType values = ((~0ull << block_pos) & blocks[block_num]) << 1;
-    const BlockType mask = (~0ull << (block_pos + 1));
-    blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
+    if (current_size_bits++ == i) {
+      // Appending at end does not need copying of bits
+      set(i, value);
+    } else {
+      // Shift everything right of inserted position in block of i
+      const size_t block_num = i / BLOCK_SIZE;
+      const size_t block_pos = i % BLOCK_SIZE;
+      BlockType last_block_value =
+          (*this)[block_num * BLOCK_SIZE + BLOCK_SIZE - 1];
+      const BlockType values = ((~0ull << block_pos) & blocks[block_num]) << 1;
+      const BlockType mask = (~0ull << (block_pos + 1));
+      blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
 
-    // Set inserted element
-    set(i, value);
+      // Set inserted element
+      set(i, value);
 
-    // Shift all other blocks after it
-    for (size_t block = block_num + 1; block < blocks.size(); ++block) {
-      const BlockType new_last_block_value =
-          (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
-      blocks[block] = (blocks[block] << 1) & ~1ull;
-      set(block * BLOCK_SIZE, last_block_value);
-      last_block_value = new_last_block_value;
+      // Shift all other blocks after it
+      for (size_t block = block_num + 1; block < blocks.size(); ++block) {
+        const BlockType new_last_block_value =
+            (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
+        blocks[block] = (blocks[block] << 1) & ~1ull;
+        set(block * BLOCK_SIZE, last_block_value);
+        last_block_value = new_last_block_value;
+      }
     }
   }
 
