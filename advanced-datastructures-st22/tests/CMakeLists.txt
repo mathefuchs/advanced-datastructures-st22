@@ -6,6 +6,7 @@ include_directories(../src)
 add_executable(ads_test
   simple_bitvector_test.cpp
   simple_bitvector_performance_test.cpp
+  dynamic_bitvector_test.cpp
 )
 target_link_libraries(ads_test gtest gtest_main)
 

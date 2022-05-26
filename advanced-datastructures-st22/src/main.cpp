@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "bv/dynamic_bitvector.hpp"
+#include "bv/simple_bitvector.hpp"
 #include "util.hpp"
 
 /**
