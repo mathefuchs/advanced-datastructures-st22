@@ -408,10 +408,8 @@ class DynamicBitVector {
       // Index in left subtree
       const bool flipped_to_one = flip_bit(node->left, i);
       if (flipped_to_one) {
-        ++node->num_bits_left_tree;
         ++node->ones_in_left_tree;
       } else {
-        --node->num_bits_left_tree;
         --node->ones_in_left_tree;
       }
       return flipped_to_one;

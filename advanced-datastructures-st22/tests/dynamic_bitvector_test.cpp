@@ -63,21 +63,20 @@ TEST(ads_test_suite, dynamic_bitvector_flip_test) {
   ASSERT_EQ(bv.size(), 0);
 
   for (size_t i = 0; i < 1200; ++i) {
-    bv.insert(i, i % 3 == 1);
+    bv.insert(i, i % 3 == 0);
   }
   ASSERT_EQ(bv.size(), 1200);
   ASSERT_EQ(bv.get_tree_structure(),
-            "(512 171 (256 85 (256 85)(256 86))(256 85 (256 85)(432 144)))");
+            "(512 171 (256 86 (256 86)(256 85))(256 85 (256 85)(432 144)))");
   for (size_t i = 0; i < 1200; ++i) {
-    ASSERT_EQ(bv[i], i % 3 == 1);
+    ASSERT_EQ(bv[i], i % 3 == 0);
   }
 
   for (size_t i = 0; i < 1200; i += 5) {
     bv.flip(i);
   }
   for (size_t i = 0; i < 1200; ++i) {
-    std::cout << i << std::endl;
-    ASSERT_EQ(bv[i], (i % 3 == 1) ^ (i % 5 == 0));
+    ASSERT_EQ(bv[i], (i % 3 == 0) ^ (i % 5 == 0));
   }
 }
 
