@@ -1,5 +1,5 @@
-#ifndef BITVECTOR_HPP
-#define BITVECTOR_HPP
+#ifndef SIMPLE_BITVECTOR_HPP
+#define SIMPLE_BITVECTOR_HPP
 
 #include <algorithm>
 #include <cstdint>
@@ -10,7 +10,7 @@ namespace ads {
 namespace bv {
 
 /**
- * @brief Bit-vector datastructure.
+ * @brief Simple Bitvector datastructure.
  */
 template <class BlockType>
 class SimpleBitVector {
@@ -41,23 +41,11 @@ class SimpleBitVector {
    * @brief Constructs a new bit vector.
    *
    * @param initial_size The initial size in bits.
-   * @param capacity The capacity in bits.
    */
-  SimpleBitVector(size_t initial_size, size_t capacity)
+  SimpleBitVector(size_t initial_size)
       : current_size_bits(initial_size),
-        blocks(
-            capacity >= initial_size
-                ? (capacity == 0 ? 0 : (capacity - 1) / BLOCK_SIZE + 1)
-                : (initial_size == 0 ? 0 : (initial_size - 1) / BLOCK_SIZE + 1),
-            0) {}
-
-  /**
-   * @brief Constructs a new bit vector.
-   *
-   * @param initial_size The initial size in bits.
-   */
-  explicit SimpleBitVector(size_t initial_size)
-      : SimpleBitVector(initial_size, initial_size) {}
+        blocks(initial_size == 0 ? 0 : (initial_size - 1) / BLOCK_SIZE + 1, 0) {
+  }
 
   /**
    * @brief Accesses the bit vector at index i.
@@ -173,27 +161,32 @@ class SimpleBitVector {
     // Update counters
     --current_size_bits;
 
-    // Shift everything left of inserted position in block of i
-    const size_t block_num = i / BLOCK_SIZE;
-    const size_t block_pos = i % BLOCK_SIZE;
-    size_t last_block_pos = block_num * BLOCK_SIZE + BLOCK_SIZE - 1;
-    const BlockType values =
-        ((~0ull << (block_pos + 1)) & blocks[block_num]) >> 1;
-    const BlockType mask = ~0ull << block_pos;
-    blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
+    if (i == current_size_bits) {
+      // If deleting last element, no copying needed.
+      reset(i);
+    } else {
+      // Shift everything left of inserted position in block of i
+      const size_t block_num = i / BLOCK_SIZE;
+      const size_t block_pos = i % BLOCK_SIZE;
+      size_t last_block_pos = block_num * BLOCK_SIZE + BLOCK_SIZE - 1;
+      const BlockType values =
+          ((~0ull << (block_pos + 1)) & blocks[block_num]) >> 1;
+      const BlockType mask = ~0ull << block_pos;
+      blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
 
-    // Shift all other blocks after it
-    for (size_t block = block_num + 1; block < blocks.size(); ++block) {
-      // Move first bit of block to block before
-      set(last_block_pos, (*this)[block * BLOCK_SIZE]);
-      last_block_pos += BLOCK_SIZE;
+      // Shift all other blocks after it
+      for (size_t block = block_num + 1; block < blocks.size(); ++block) {
+        // Move first bit of block to block before
+        set(last_block_pos, (*this)[block * BLOCK_SIZE]);
+        last_block_pos += BLOCK_SIZE;
 
-      // Shift complete block
-      blocks[block] >>= 1;
+        // Shift complete block
+        blocks[block] >>= 1;
+      }
+
+      // Reset last block's last bit
+      reset(last_block_pos);
     }
-
-    // Reset last block's last bit
-    reset(last_block_pos);
 
     // Delete empty blocks
     if (!blocks.empty() &&
@@ -294,6 +287,58 @@ class SimpleBitVector {
 
     return block_pos;
   }
+
+  /**
+   * @brief Splits the bitvector in half. This instance is the first half.
+   *
+   * @return The second half.
+   */
+  SimpleBitVector<BlockType>* split() {
+    // Init new bitvector with #blocks / 2 new blocks
+    // (plus one to avoid immediate allocation on insert)
+    const size_t moved_blocks = size_in_blocks() / 2;
+    auto split_out_bv = new SimpleBitVector<BlockType>(
+        current_size_bits - moved_blocks * BLOCK_SIZE);
+
+    // Copy second half to new destination
+    const size_t previous_num_blocks = blocks.size();
+    for (size_t i = moved_blocks; i < previous_num_blocks; ++i) {
+      split_out_bv->blocks[i - moved_blocks] = blocks[i];
+    }
+    for (size_t i = moved_blocks; i < previous_num_blocks; ++i) {
+      blocks.pop_back();
+    }
+
+    // Update size
+    current_size_bits = moved_blocks * BLOCK_SIZE;
+
+    return split_out_bv;
+  }
+
+  /**
+   * @brief Returns the number of ones in the complete bitvector.
+   *
+   * @return The number of ones.
+   */
+  size_t num_ones() {
+    size_t rank = 0;
+    for (size_t block = 0; block < blocks.size(); ++block) {
+      rank += popcount(blocks[block]);
+    }
+    return rank;
+  }
+
+  /**
+   * @brief Append value at the end.
+   *
+   * @param value The value to append.
+   */
+  void push_back(bool value) { insert(current_size_bits, value); }
+
+  /**
+   * @brief Pop value from the end.
+   */
+  void pop_back() { delete_elem(current_size_bits - 1); }
 };
 
 /**

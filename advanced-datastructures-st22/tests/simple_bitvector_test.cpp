@@ -248,7 +248,7 @@ TEST(ads_test_suite, simple_bitvector_delete_full_test) {
   }
 
   // Set values
-  ads::bv::SimpleBitVector<uint64_t> bv(1000);
+  ads::bv::SimpleBitVector<uint32_t> bv(1000);
   for (size_t i = 0; i < 75; ++i) {
     bv.set(7 + 13 * i);
   }
@@ -271,7 +271,7 @@ TEST(ads_test_suite, simple_bitvector_delete_full_test) {
 }
 
 TEST(ads_test_suite, simple_bitvector_rank_test) {
-  ads::bv::SimpleBitVector<uint64_t> bv(1000, 2000);
+  ads::bv::SimpleBitVector<uint64_t> bv(1000);
   bv.set(0);
   bv.set(1);
   bv.set(50);
@@ -284,7 +284,7 @@ TEST(ads_test_suite, simple_bitvector_rank_test) {
   bv.set(800);
 
   ASSERT_EQ(bv.size_in_bits(), 1000);
-  ASSERT_EQ(bv.size_in_blocks(), 32);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
 
   ASSERT_EQ(bv.rank_one(1), 1);
   ASSERT_EQ(bv.rank_zero(1), 0);
@@ -295,7 +295,7 @@ TEST(ads_test_suite, simple_bitvector_rank_test) {
 }
 
 TEST(ads_test_suite, simple_bitvector_select_test) {
-  ads::bv::SimpleBitVector<uint8_t> bv(1000, 2000);
+  ads::bv::SimpleBitVector<uint8_t> bv(1000);
   bv.set(0);
   bv.set(1);
   bv.set(50);
@@ -308,7 +308,7 @@ TEST(ads_test_suite, simple_bitvector_select_test) {
   bv.set(800);
 
   ASSERT_EQ(bv.size_in_bits(), 1000);
-  ASSERT_EQ(bv.size_in_blocks(), 250);
+  ASSERT_EQ(bv.size_in_blocks(), 125);
 
   ASSERT_EQ(bv.select_one(1), 0);
   ASSERT_EQ(bv.select_zero(1), 2);
@@ -316,6 +316,91 @@ TEST(ads_test_suite, simple_bitvector_select_test) {
   ASSERT_EQ(bv.select_zero(2), 3);
   ASSERT_EQ(bv.select_one(9), 300);
   ASSERT_EQ(bv.select_zero(50), 52);
+}
+
+TEST(ads_test_suite, simple_bitvector_split_test) {
+  ads::bv::SimpleBitVector<uint16_t> bv(1000);
+  bv.set(0);
+  bv.set(1);
+  bv.set(50);
+  bv.set(63);
+  bv.set(64);
+  bv.set(65);
+  bv.set(100);
+  bv.set(600);
+  bv.set(700);
+  bv.set(800);
+
+  ASSERT_EQ(bv.size_in_bits(), 1000);
+  ASSERT_EQ(bv.size_in_blocks(), 63);
+
+  auto *right_half_bv = bv.split();
+  EXPECT_EQ(bv.size_in_blocks(), 31);
+  EXPECT_EQ(bv.size_in_bits(), 31 * 16);
+  EXPECT_EQ(right_half_bv->size_in_blocks(), 32);
+  EXPECT_EQ(right_half_bv->size_in_bits(), 1000 - 31 * 16);
+  EXPECT_TRUE(bv[0]);
+  EXPECT_TRUE(bv[1]);
+  EXPECT_TRUE(bv[50]);
+  EXPECT_TRUE(bv[63]);
+  EXPECT_TRUE(bv[64]);
+  EXPECT_TRUE(bv[65]);
+  EXPECT_TRUE(bv[100]);
+  EXPECT_TRUE((*right_half_bv)[104]);
+  EXPECT_TRUE((*right_half_bv)[204]);
+  EXPECT_TRUE((*right_half_bv)[304]);
+  delete right_half_bv;
+}
+
+TEST(ads_test_suite, simple_bitvector_num_ones_test) {
+  ads::bv::SimpleBitVector<uint8_t> bv1(1000);
+  ASSERT_EQ(bv1.num_ones(), 0);
+  for (size_t i = 56; i < 346; ++i) {
+    bv1.set(i, i % 2 == 1);
+  }
+  ASSERT_EQ(bv1.num_ones(), (346 - 56) / 2);
+
+  ads::bv::SimpleBitVector<uint16_t> bv2(1000);
+  ASSERT_EQ(bv2.num_ones(), 0);
+  for (size_t i = 56; i < 346; ++i) {
+    bv2.set(i, i % 2 == 1);
+  }
+  ASSERT_EQ(bv2.num_ones(), (346 - 56) / 2);
+
+  ads::bv::SimpleBitVector<uint32_t> bv3(1000);
+  ASSERT_EQ(bv3.num_ones(), 0);
+  for (size_t i = 56; i < 346; ++i) {
+    bv3.set(i, i % 2 == 1);
+  }
+  ASSERT_EQ(bv3.num_ones(), (346 - 56) / 2);
+
+  ads::bv::SimpleBitVector<uint64_t> bv4(1000);
+  ASSERT_EQ(bv4.num_ones(), 0);
+  for (size_t i = 56; i < 346; ++i) {
+    bv4.set(i, i % 2 == 1);
+  }
+  ASSERT_EQ(bv4.num_ones(), (346 - 56) / 2);
+}
+
+TEST(ads_test_suite, simple_bitvector_push_pop_test) {
+  ads::bv::SimpleBitVector<uint8_t> bv(0);
+  for (size_t i = 0; i < 100; ++i) {
+    bv.push_back(i % 3 == 1);
+  }
+  ASSERT_EQ(bv.size_in_bits(), 100);
+  ASSERT_EQ(bv.size_in_blocks(), 13);
+  for (size_t i = 0; i < 100; ++i) {
+    ASSERT_EQ(bv[i], i % 3 == 1);
+  }
+
+  for (size_t i = 0; i < 50; ++i) {
+    bv.pop_back();
+  }
+  ASSERT_EQ(bv.size_in_bits(), 50);
+  ASSERT_EQ(bv.size_in_blocks(), 7);
+  for (size_t i = 0; i < 50; ++i) {
+    ASSERT_EQ(bv[i], i % 3 == 1);
+  }
 }
 
 }  // namespace ads_test
