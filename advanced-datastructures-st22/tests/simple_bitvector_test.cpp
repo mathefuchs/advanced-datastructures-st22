@@ -54,6 +54,46 @@ TEST(ads_test_suite, simple_bitvector_set_value_test) {
   }
 }
 
+TEST(ads_test_suite, simple_bitvector_set_value_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(512);
+  std::vector<bool> expected(512, false);
+  for (size_t i = 0; i < 512; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+  }
+  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size_in_blocks(), 8);
+  for (size_t i = 0; i < 512; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+}
+
+TEST(ads_test_suite, simple_bitvector_set_reset_value_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(512);
+  for (size_t i = 0; i < 512; ++i) {
+    bv.set(i, i % 2);
+  }
+
+  std::vector<bool> expected(512, false);
+  for (size_t i = 0; i < 512; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    if (value) {
+      bv.set(i);
+    } else {
+      bv.reset(i);
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size_in_blocks(), 8);
+  for (size_t i = 0; i < 512; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+}
+
 TEST(ads_test_suite, simple_bitvector_set_test) {
   // Expected values
   std::vector<bool> set_elements(20000, false);
@@ -124,6 +164,24 @@ TEST(ads_test_suite, simple_bitvector_flip_test) {
   // Check values
   for (size_t i = 0; i < 20000; ++i) {
     ASSERT_EQ(bv[i], set_elements[i]);
+  }
+}
+
+TEST(ads_test_suite, simple_bitvector_flip_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(512);
+  std::vector<bool> expected(512, false);
+  for (size_t i = 0; i < 512; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    if (value) {
+      bv.flip(i);
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size_in_blocks(), 8);
+  for (size_t i = 0; i < 512; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
   }
 }
 
@@ -211,6 +269,25 @@ TEST(ads_test_suite, simple_bitvector_insert_full_test) {
   }
 }
 
+TEST(ads_test_suite, simple_bitvector_insert_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(512);
+  std::vector<bool> expected(1024, false);
+  for (size_t i = 0; i < 512; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    bv.insert(i, value);
+    for (size_t j = 0; j <= i; ++j) {
+      ASSERT_EQ(bv[j], expected[j]);
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
+  for (size_t i = 0; i < 1024; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+}
+
 TEST(ads_test_suite, simple_bitvector_delete_until_empty_test) {
   ads::bv::SimpleBitVector<uint64_t> bv(5);
   bv.delete_elem(0);
@@ -272,6 +349,31 @@ TEST(ads_test_suite, simple_bitvector_delete_full_test) {
   }
 }
 
+TEST(ads_test_suite, simple_bitvector_delete_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(1024);
+  std::vector<bool> expected(1024, false);
+  for (size_t i = 0; i < 1024; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+  }
+  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
+
+  for (size_t i = 0; i < 512; ++i) {
+    // Delete every second element
+    bv.delete_elem(i);
+  }
+  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size_in_blocks(), 8);
+
+  ASSERT_EQ(bv.size_in_bits(), 512);
+  for (size_t i = 0; i < 512; ++i) {
+    ASSERT_EQ(bv[i], expected[2 * i + 1]);
+  }
+}
+
 TEST(ads_test_suite, simple_bitvector_rank_test) {
   ads::bv::SimpleBitVector<uint64_t> bv(1000);
   bv.set(0);
@@ -296,6 +398,30 @@ TEST(ads_test_suite, simple_bitvector_rank_test) {
   ASSERT_EQ(bv.rank_zero(500), 491);
 }
 
+TEST(ads_test_suite, simple_bitvector_rank_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(1024);
+  std::vector<bool> expected(1024, false);
+  std::vector<size_t> ones_so_far(1025, 0);
+  for (size_t i = 0; i < 1024; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+    if (value) {
+      ones_so_far[i + 1] = ones_so_far[i] + 1;
+    } else {
+      ones_so_far[i + 1] = ones_so_far[i];
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
+  for (size_t i = 0; i < 1024; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+    ASSERT_EQ(bv.rank_one(i), ones_so_far[i]);
+    ASSERT_EQ(bv.rank_zero(i), i - ones_so_far[i]);
+  }
+}
+
 TEST(ads_test_suite, simple_bitvector_select_test) {
   ads::bv::SimpleBitVector<uint8_t> bv(1000);
   bv.set(0);
@@ -318,6 +444,35 @@ TEST(ads_test_suite, simple_bitvector_select_test) {
   ASSERT_EQ(bv.select_zero(2), 3);
   ASSERT_EQ(bv.select_one(9), 300);
   ASSERT_EQ(bv.select_zero(50), 52);
+}
+
+TEST(ads_test_suite, simple_bitvector_select_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(1024);
+  std::vector<bool> expected(1024, false);
+  std::vector<size_t> one_positions;
+  std::vector<size_t> zero_positions;
+  for (size_t i = 0; i < 1024; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+    if (value) {
+      one_positions.push_back(i);
+    } else {
+      zero_positions.push_back(i);
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
+  for (size_t i = 0; i < 1024; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+  for (size_t i = 0; i < one_positions.size(); ++i) {
+    ASSERT_EQ(bv.select_one(i + 1), one_positions[i]);
+  }
+  for (size_t i = 0; i < zero_positions.size(); ++i) {
+    ASSERT_EQ(bv.select_zero(i + 1), zero_positions[i]);
+  }
 }
 
 TEST(ads_test_suite, simple_bitvector_split_test) {
@@ -354,6 +509,32 @@ TEST(ads_test_suite, simple_bitvector_split_test) {
   delete right_half_bv;
 }
 
+TEST(ads_test_suite, simple_bitvector_split_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(1024);
+  std::vector<bool> expected(1024, false);
+  for (size_t i = 0; i < 1024; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+  }
+  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
+
+  auto *second_half = bv.split();
+  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size_in_blocks(), 8);
+  ASSERT_EQ(second_half->size_in_bits(), 512);
+  ASSERT_EQ(second_half->size_in_blocks(), 8);
+  for (size_t i = 0; i < 512; ++i) {
+    EXPECT_EQ(bv[i], expected[i]);
+  }
+  for (size_t i = 0; i < 512; ++i) {
+    EXPECT_EQ((*second_half)[i], expected[i + 512]);
+  }
+  delete second_half;
+}
+
 TEST(ads_test_suite, simple_bitvector_num_ones_test) {
   ads::bv::SimpleBitVector<uint8_t> bv1(1000);
   ASSERT_EQ(bv1.num_ones(), 0);
@@ -384,6 +565,27 @@ TEST(ads_test_suite, simple_bitvector_num_ones_test) {
   ASSERT_EQ(bv4.num_ones(), (346 - 56) / 2);
 }
 
+TEST(ads_test_suite, simple_bitvector_num_ones_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(1024);
+  std::vector<bool> expected(1024, false);
+  size_t ones = 0;
+  for (size_t i = 0; i < 1024; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+    if (value) {
+      ++ones;
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
+  for (size_t i = 0; i < 1024; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+  ASSERT_EQ(bv.num_ones(), ones);
+}
+
 TEST(ads_test_suite, simple_bitvector_push_pop_test) {
   ads::bv::SimpleBitVector<uint8_t> bv(0);
   for (size_t i = 0; i < 100; ++i) {
@@ -402,6 +604,35 @@ TEST(ads_test_suite, simple_bitvector_push_pop_test) {
   ASSERT_EQ(bv.size_in_blocks(), 7);
   for (size_t i = 0; i < 50; ++i) {
     ASSERT_EQ(bv[i], i % 3 == 1);
+  }
+}
+
+TEST(ads_test_suite, simple_bitvector_push_pop_block_size_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(512);
+  std::vector<bool> expected(1024, false);
+  for (size_t i = 0; i < 1024; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    if (i < 512) {
+      bv.set(i, value);
+    } else {
+      bv.push_back(value);
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size_in_blocks(), 16);
+  for (size_t i = 0; i < 1024; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+
+  for (size_t i = 0; i < 512; ++i) {
+    bv.pop_back();
+  }
+  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size_in_blocks(), 8);
+  for (size_t i = 0; i < 512; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
   }
 }
 

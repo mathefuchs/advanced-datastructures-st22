@@ -156,18 +156,21 @@ class SimpleBitVector {
       // Shift everything right of inserted position in block of i
       const SizeType block_num = i / BLOCK_SIZE;
       const SizeType block_pos = i % BLOCK_SIZE;
-      BlockType last_block_value =
-          (*this)[block_num * BLOCK_SIZE + BLOCK_SIZE - 1];
-      const BlockType values = ((~0ull << block_pos) & blocks[block_num]) << 1;
-      const BlockType mask = (~0ull << (block_pos + 1));
-      blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
+      bool last_block_value = (*this)[block_num * BLOCK_SIZE + BLOCK_SIZE - 1];
+      if ((block_pos + 1) % BLOCK_SIZE != 0) {
+        // Shift remaining values in block (only necessary when not inserting at end of block)
+        const BlockType values = ((~0ull << block_pos) & blocks[block_num])
+                                 << 1;
+        const BlockType mask = (~0ull << (block_pos + 1));
+        blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
+      }
 
       // Set inserted element
       set(i, value);
 
       // Shift all other blocks after it
       for (SizeType block = block_num + 1; block < size_in_blocks(); ++block) {
-        const BlockType new_last_block_value =
+        const bool new_last_block_value =
             (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
         blocks[block] = (blocks[block] << 1) & ~1ull;
         set(block * BLOCK_SIZE, last_block_value);
