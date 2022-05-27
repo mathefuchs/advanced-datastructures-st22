@@ -26,15 +26,32 @@ template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
           SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks>
 class DynamicBitVector {
  private:
-  static_assert(MinLeafSizeBlocks < InitialLeafSizeBlocks,
+  static_assert(2 * MinLeafSizeBlocks <= InitialLeafSizeBlocks,
                 "Leaf sizes invalid.");
-  static_assert(InitialLeafSizeBlocks < MaxLeafSizeBlocks,
+  static_assert(InitialLeafSizeBlocks <= 2 * MaxLeafSizeBlocks,
                 "Leaf sizes invalid.");
+
+  /**
+   * @brief Short-hand name for leafs.
+   */
+  using Leaf = SimpleBitVector<BlockType, SizeType>;
 
   /**
    * @brief Colors of the nodes.
    */
   enum class Color { RED, BLACK, DOUBLE_BLACK };
+
+  /**
+   * @brief Helper enum indicating whether deletion was successful or an
+   * underflow has occurred.
+   */
+  enum class LeafDeletion { DELETED_ZERO, DELETED_ONE, UNDERFLOW };
+
+  /**
+   * @brief Helper enum to determine whether a change indicates a change in
+   * related counters.
+   */
+  enum class BitChangeResult { ONE_MORE_ONE, ONE_LESS_ONE, NO_CHANGE };
 
   /**
    * @brief Node helper class. Represents a leaf if leaf_data not null.
@@ -53,11 +70,12 @@ class DynamicBitVector {
     SizeType ones_in_left_tree = 0;
 
     // If not null, node represents leaf
-    SimpleBitVector<BlockType, SizeType> *leaf_data = nullptr;
+    Leaf *leaf_data = nullptr;
   };
 
   Node *root;
   SizeType current_size;
+  SizeType total_ones;
 
   /**
    * @brief Get the color of the node.
@@ -370,22 +388,38 @@ class DynamicBitVector {
    *
    * @param node The node where to start.
    * @param i The bit position to find.
-   * @return true if there is one more one.
+   * @return Whether the number of ones is changed.
    */
-  bool set_bit(Node *node, SizeType i, bool value) {
+  BitChangeResult set_bit(Node *node, SizeType i, bool value) {
     if (node->leaf_data) {
       // Base case: If in leaf, access bit
-      const bool one_more_one = value ? !((*node->leaf_data)[i]) : false;
+      const bool prev_value = (*node->leaf_data)[i];
       node->leaf_data->set(i, value);
-      return one_more_one;
+      if (prev_value && !value) {
+        return BitChangeResult::ONE_LESS_ONE;
+      } else if (!prev_value && value) {
+        return BitChangeResult::ONE_MORE_ONE;
+      } else {
+        return BitChangeResult::NO_CHANGE;
+      }
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
       return set_bit(node->right, i - node->num_bits_left_tree, value);
     } else {
       // Index in left subtree
-      const bool one_more_one = set_bit(node->left, i, value);
-      if (one_more_one) ++node->ones_in_left_tree;
-      return one_more_one;
+      const auto change_in_ones = set_bit(node->left, i, value);
+      switch (change_in_ones) {
+        case BitChangeResult::ONE_LESS_ONE:
+          --node->ones_in_left_tree;
+          break;
+        case BitChangeResult::ONE_MORE_ONE:
+          ++node->ones_in_left_tree;
+          break;
+        case BitChangeResult::NO_CHANGE:
+        default:
+          break;
+      }
+      return change_in_ones;
     }
   }
 
@@ -524,46 +558,144 @@ class DynamicBitVector {
   }
 
   /**
+   * @brief Moves the source leaf's bits to the specified position.
+   *
+   * @param node The starting node to search for the correct position.
+   * @param i The position to insert.
+   * @param src The source leaf bitvector.
+   * @param num_ones_leaf The number of ones in the bitvector.
+   * @param insert_back Whether to insert at the back (true) or front (false).
+   */
+  void move_to_leaf(Node *node, SizeType i, Leaf *src, SizeType num_ones_leaf,
+                    bool insert_back) {
+    if (node->leaf_data) {
+      // Base case
+      if (insert_back) {
+        node->leaf_data->copy_to_back(*src);
+        delete src;
+      } else {
+        src->copy_to_back(node->leaf_data);
+        delete node->leaf_data;
+        node->leaf_data = src;
+      }
+    } else if (node->num_bits_left_tree <= i) {
+      // Index in right subtree
+      move_to_leaf(node->right, i - node->num_bits_left_tree, src,
+                   num_ones_leaf);
+    } else {
+      // Index in left subtree
+      node->num_bits_left_tree += src->size_in_bits();
+      node->ones_in_left_tree += num_ones_leaf;
+      move_to_leaf(node->left, i, src, num_ones_leaf);
+    }
+  }
+
+  /**
    * @brief Delete bit at position under node.
    *
    * @param node The starting node.
    * @param i The position.
-   * @return true if deleted a one.
+   * @param num_bits The number of bits under the node.
+   * @param ones The number of ones under the node.
+   * @param allow_underflow Whether to allow for underflows in deletion.
+   * @return Whether the deletion in the leaf was successful.
    */
-  bool delete_at_node(Node *node, SizeType i) {
+  LeafDeletion delete_at_node(Node *node, SizeType i, SizeType num_bits,
+                              SizeType ones, bool allow_underflow) {
     if (node->leaf_data) {
-      // Base case: If in leaf, delete bit
-      auto *left_leaf = node->leaf_data;
-      const bool deleted_one = (*left_leaf)[i];
-      left_leaf->delete_elem(i);
-
-      if (node != root && left_leaf->size_in_blocks() <= MinLeafSizeBlocks) {
-        // Delete leaf and merge with other
-        // Node *parent = node->parent;
-        // SizeType num_bits = left_leaf->size_in_bits();
-        // SizeType num_ones = left_leaf->size_in_bits();
-        // if (parent->left == node) {
-        //   parent->left = nullptr;
-        // } else {
-        //   parent->right = nullptr;
-        // }
-        // delete node;
-        // rebalance_after_deletion(parent);
-
-        // Rebalance if necessary
-        // TODO
+      // Base case: If in leaf, delete bit (if not an underflow)
+      if (!allow_underflow && node != root &&
+          node->leaf_data->size_in_blocks() <= MinLeafSizeBlocks) {
+        // Underflow, do not delete and delegate to parent to merge nodes
+        return LeafDeletion::UNDERFLOW;
+      } else {
+        // No underflow
+        const bool deleted_one = (*node->leaf_data)[i];
+        node->leaf_data->delete_elem(i);
+        return deleted_one ? LeafDeletion::DELETED_ONE
+                           : LeafDeletion::DELETED_ZERO;
       }
 
-      return deleted_one;
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
-      return delete_at_node(node->right, i - node->num_bits_left_tree);
+      const auto deletion_successful =
+          delete_at_node(node->right, i - node->num_bits_left_tree,
+                         num_bits - node->num_bits_left_tree,
+                         ones - node->ones_in_left_tree, allow_underflow);
+      if (deletion_successful == LeafDeletion::UNDERFLOW) {
+        return LeafDeletion::UNDERFLOW;
+      }
+      if (deletion_successful == LeafDeletion::DELETED_ONE) {
+        --ones;
+      }
+      if (num_bits - node->num_bits_left_tree ==
+          MinLeafSizeBlocks * Leaf::BLOCK_SIZE) {
+        const auto second_attempt =
+            delete_at_node(node->left, node->num_bits_left_tree - 1,
+                           node->num_bits_left_tree, 0, false);
+        switch (second_attempt) {
+          case LeafDeletion::UNDERFLOW:
+            // Merge leaves
+            move_to_leaf(node->left, node->num_bits_left_tree,
+                         node->right->leaf_data, ones - node->ones_in_left_tree,
+                         true);
+            delete node->right;
+            node->right = nullptr;
+            return deletion_successful;
+          case LeafDeletion::DELETED_ZERO:
+            insert_at_node(node->right, 0, false);
+            --node->num_bits_left_tree;
+            break;
+          case LeafDeletion::DELETED_ONE:
+            insert_at_node(node->left, 0, true);
+            --node->num_bits_left_tree;
+            --node->ones_in_left_tree;
+            break;
+        }
+      }
+
+      // Do rebalancing if necessary
+      rebalance_after_deletion(node);
+      return deletion_successful;
+
     } else {
       // Index in left subtree
-      const bool deleted_one = delete_at_node(node->left, i);
-      --node->num_bits_left_tree;
-      if (deleted_one) --node->ones_in_left_tree;
-      return deleted_one;
+      const auto deletion_successful =
+          delete_at_node(node->left, i, node->num_bits_left_tree,
+                         node->ones_in_left_tree, allow_underflow);
+      if (deletion_successful == LeafDeletion::UNDERFLOW) {
+        return LeafDeletion::UNDERFLOW;
+      }
+      if (deletion_successful == LeafDeletion::DELETED_ONE) {
+        --node->ones_in_left_tree;
+      }
+      if (node->num_bits_left_tree == MinLeafSizeBlocks * Leaf::BLOCK_SIZE) {
+        // Correct underflow
+        const auto second_attempt = delete_at_node(
+            node->right, 0, num_bits - node->num_bits_left_tree, 0, false);
+        switch (second_attempt) {
+          case LeafDeletion::UNDERFLOW:
+            // Merge leaves
+            move_to_leaf(node->right, 0, node->left->leaf_data,
+                         node->ones_in_left_tree, false);
+            delete node->left;
+            node->left = nullptr;
+            return deletion_successful;
+          case LeafDeletion::DELETED_ZERO:
+            insert_at_node(node->left, node->num_bits_left_tree, false);
+            break;
+          case LeafDeletion::DELETED_ONE:
+            insert_at_node(node->left, node->num_bits_left_tree, true);
+            ++node->ones_in_left_tree;
+            break;
+        }
+      } else {
+        --node->num_bits_left_tree;
+      }
+
+      // Do rebalancing if necessary
+      rebalance_after_deletion(node);
+      return deletion_successful;
     }
   }
 
@@ -593,8 +725,8 @@ class DynamicBitVector {
   /**
    * @brief Construct a new empty dynamic bitvector.
    */
-  DynamicBitVector() : root(new Node()), current_size(0) {
-    root->leaf_data = new SimpleBitVector<BlockType, SizeType>(0);
+  DynamicBitVector() : root(new Node()), current_size(0), total_ones(0) {
+    root->leaf_data = new Leaf(0);
   }
 
   DynamicBitVector(DynamicBitVector &) = delete;
@@ -613,6 +745,13 @@ class DynamicBitVector {
   SizeType size() const { return current_size; }
 
   /**
+   * @brief Current number of ones.
+   *
+   * @return The bitvector's number of ones.
+   */
+  SizeType num_ones() const { return total_ones; }
+
+  /**
    * @brief Access the bit at position i.
    *
    * @param i The position to access.
@@ -627,14 +766,32 @@ class DynamicBitVector {
    * @param i The position.
    * @param value The value.
    */
-  void set(SizeType i, bool value) { set_bit(root, i, value); }
+  void set(SizeType i, bool value) {
+    switch (set_bit(root, i, value)) {
+      case BitChangeResult::ONE_LESS_ONE:
+        --total_ones;
+        break;
+      case BitChangeResult::ONE_MORE_ONE:
+        ++total_ones;
+        break;
+      case BitChangeResult::NO_CHANGE:
+      default:
+        break;
+    }
+  }
 
   /**
    * @brief Flips the bit at position i.
    *
    * @param i The position to flip.
    */
-  void flip(SizeType i) { flip_bit(root, i); }
+  void flip(SizeType i) {
+    if (flip_bit(root, i)) {
+      ++total_ones;
+    } else {
+      --total_ones;
+    }
+  }
 
   /**
    * @brief Number of ones/zeros until position i (exclusive).
@@ -666,8 +823,9 @@ class DynamicBitVector {
    */
   void insert(SizeType i, bool value) {
     if (i <= current_size) {
-      ++current_size;
       insert_at_node(root, i, value);
+      ++current_size;
+      if (value) ++total_ones;
     }
   }
 
@@ -678,8 +836,11 @@ class DynamicBitVector {
    */
   void delete_element(SizeType i) {
     if (i < current_size) {
+      if (delete_at_node(root, i, current_size, total_ones, true) ==
+          LeafDeletion::DELETED_ONE) {
+        --total_ones;
+      }
       --current_size;
-      delete_at_node(root, i);
     }
   }
 
