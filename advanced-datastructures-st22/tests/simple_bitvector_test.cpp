@@ -11,28 +11,27 @@ namespace ads_test {
 TEST(ads_test_suite, simple_bitvector_empty_test) {
   ads::bv::SimpleBitVector<uint64_t> bv(0);
   ASSERT_EQ(bv.size_in_blocks(), 0);
-  ASSERT_EQ(bv.size_in_bits(), 0);
+  ASSERT_EQ(bv.size(), 0);
 }
 
 TEST(ads_test_suite, simple_bitvector_one_element_test) {
   ads::bv::SimpleBitVector<uint64_t> bv(1);
   ASSERT_EQ(bv.size_in_blocks(), 1);
-  ASSERT_EQ(bv.size_in_bits(), 1);
+  ASSERT_EQ(bv.size(), 1);
 }
 
 TEST(ads_test_suite, simple_bitvector_one_block_test) {
   ads::bv::SimpleBitVector<uint64_t> bv(
       ads::bv::SimpleBitVector<uint64_t>::BLOCK_SIZE);
   ASSERT_EQ(bv.size_in_blocks(), 1);
-  ASSERT_EQ(bv.size_in_bits(), ads::bv::SimpleBitVector<uint64_t>::BLOCK_SIZE);
+  ASSERT_EQ(bv.size(), ads::bv::SimpleBitVector<uint64_t>::BLOCK_SIZE);
 }
 
 TEST(ads_test_suite, simple_bitvector_one_block_plus_one_test) {
   ads::bv::SimpleBitVector<uint64_t> bv(
       ads::bv::SimpleBitVector<uint64_t>::BLOCK_SIZE + 1);
   ASSERT_EQ(bv.size_in_blocks(), 2);
-  ASSERT_EQ(bv.size_in_bits(),
-            ads::bv::SimpleBitVector<uint64_t>::BLOCK_SIZE + 1);
+  ASSERT_EQ(bv.size(), ads::bv::SimpleBitVector<uint64_t>::BLOCK_SIZE + 1);
 }
 
 TEST(ads_test_suite, simple_bitvector_set_value_test) {
@@ -63,7 +62,7 @@ TEST(ads_test_suite, simple_bitvector_set_value_block_size_test) {
     expected[i] = value;
     bv.set(i, value);
   }
-  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size(), 512);
   ASSERT_EQ(bv.size_in_blocks(), 8);
   for (size_t i = 0; i < 512; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -87,7 +86,7 @@ TEST(ads_test_suite, simple_bitvector_set_reset_value_block_size_test) {
       bv.reset(i);
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size(), 512);
   ASSERT_EQ(bv.size_in_blocks(), 8);
   for (size_t i = 0; i < 512; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -178,7 +177,7 @@ TEST(ads_test_suite, simple_bitvector_flip_block_size_test) {
       bv.flip(i);
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size(), 512);
   ASSERT_EQ(bv.size_in_blocks(), 8);
   for (size_t i = 0; i < 512; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -186,14 +185,14 @@ TEST(ads_test_suite, simple_bitvector_flip_block_size_test) {
 }
 
 TEST(ads_test_suite, simple_bitvector_insert_empty_test) {
-  ads::bv::SimpleBitVector<uint64_t> bv(0);
+  ads::bv::SimpleBitVector<uint64_t> bv;
   bv.insert(0, 1);
   bv.insert(0, 0);
   bv.insert(0, 1);
   bv.insert(0, 1);
   bv.insert(0, 0);
   bv.insert(0, 0);
-  ASSERT_EQ(bv.size_in_bits(), 6);
+  ASSERT_EQ(bv.size(), 6);
   ASSERT_EQ(bv.size_in_blocks(), 1);
   ASSERT_FALSE(bv[0]);
   ASSERT_FALSE(bv[1]);
@@ -211,7 +210,7 @@ TEST(ads_test_suite, simple_bitvector_insert_middle_test) {
   bv.insert(400, 1);
   bv.insert(500, 0);
   bv.insert(600, 0);
-  ASSERT_EQ(bv.size_in_bits(), 1006);
+  ASSERT_EQ(bv.size(), 1006);
   ASSERT_EQ(bv.size_in_blocks(), 16);
   ASSERT_TRUE(bv[100]);
   ASSERT_FALSE(bv[200]);
@@ -229,7 +228,7 @@ TEST(ads_test_suite, simple_bitvector_insert_reverse_test) {
   bv.insert(300, 1);
   bv.insert(200, 0);
   bv.insert(100, 0);
-  ASSERT_EQ(bv.size_in_bits(), 1006);
+  ASSERT_EQ(bv.size(), 1006);
   ASSERT_EQ(bv.size_in_blocks(), 16);
   ASSERT_TRUE(bv[605]);
   ASSERT_FALSE(bv[504]);
@@ -263,8 +262,8 @@ TEST(ads_test_suite, simple_bitvector_insert_full_test) {
   }
 
   // Check values
-  ASSERT_EQ(set_elements.size(), bv.size_in_bits());
-  for (size_t i = 0; i < bv.size_in_bits(); ++i) {
+  ASSERT_EQ(set_elements.size(), bv.size());
+  for (size_t i = 0; i < bv.size(); ++i) {
     ASSERT_EQ(bv[i], set_elements[i]);
   }
 }
@@ -281,7 +280,7 @@ TEST(ads_test_suite, simple_bitvector_insert_block_size_test) {
       ASSERT_EQ(bv[j], expected[j]);
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
   for (size_t i = 0; i < 1024; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -290,12 +289,12 @@ TEST(ads_test_suite, simple_bitvector_insert_block_size_test) {
 
 TEST(ads_test_suite, simple_bitvector_delete_until_empty_test) {
   ads::bv::SimpleBitVector<uint64_t> bv(5);
-  bv.delete_elem(0);
-  bv.delete_elem(0);
-  bv.delete_elem(0);
-  bv.delete_elem(0);
-  bv.delete_elem(0);
-  ASSERT_EQ(bv.size_in_bits(), 0);
+  bv.delete_element(0);
+  bv.delete_element(0);
+  bv.delete_element(0);
+  bv.delete_element(0);
+  bv.delete_element(0);
+  ASSERT_EQ(bv.size(), 0);
   ASSERT_EQ(bv.size_in_blocks(), 0);
 }
 
@@ -306,14 +305,14 @@ TEST(ads_test_suite, simple_bitvector_delete_middle_test) {
   bv.set(300);
   bv.set(400);
   bv.set(500);
-  bv.delete_elem(100);
-  bv.delete_elem(199);
-  bv.delete_elem(298);
-  bv.delete_elem(397);
-  bv.delete_elem(496);
-  ASSERT_EQ(bv.size_in_bits(), 995);
+  bv.delete_element(100);
+  bv.delete_element(199);
+  bv.delete_element(298);
+  bv.delete_element(397);
+  bv.delete_element(496);
+  ASSERT_EQ(bv.size(), 995);
   ASSERT_EQ(bv.size_in_blocks(), 16);
-  for (size_t i = 0; i < bv.size_in_bits(); ++i) {
+  for (size_t i = 0; i < bv.size(); ++i) {
     ASSERT_FALSE(bv[i]);
   }
 }
@@ -337,14 +336,14 @@ TEST(ads_test_suite, simple_bitvector_delete_full_test) {
   for (auto it = std::begin(set_elements); it != std::end(set_elements); ++it) {
     if (i % 3 == 0) {
       it = set_elements.erase(it);
-      bv.delete_elem(i);
+      bv.delete_element(i);
     }
     ++i;
   }
 
   // Check values
-  ASSERT_EQ(set_elements.size(), bv.size_in_bits());
-  for (size_t i = 0; i < bv.size_in_bits(); ++i) {
+  ASSERT_EQ(set_elements.size(), bv.size());
+  for (size_t i = 0; i < bv.size(); ++i) {
     ASSERT_EQ(bv[i], set_elements[i]);
   }
 }
@@ -358,17 +357,17 @@ TEST(ads_test_suite, simple_bitvector_delete_block_size_test) {
     expected[i] = value;
     bv.set(i, value);
   }
-  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
 
   for (size_t i = 0; i < 512; ++i) {
     // Delete every second element
-    bv.delete_elem(i);
+    bv.delete_element(i);
   }
-  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size(), 512);
   ASSERT_EQ(bv.size_in_blocks(), 8);
 
-  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size(), 512);
   for (size_t i = 0; i < 512; ++i) {
     ASSERT_EQ(bv[i], expected[2 * i + 1]);
   }
@@ -387,7 +386,7 @@ TEST(ads_test_suite, simple_bitvector_rank_test) {
   bv.set(300);
   bv.set(800);
 
-  ASSERT_EQ(bv.size_in_bits(), 1000);
+  ASSERT_EQ(bv.size(), 1000);
   ASSERT_EQ(bv.size_in_blocks(), 16);
 
   ASSERT_EQ(bv.rank_one(1), 1);
@@ -413,12 +412,14 @@ TEST(ads_test_suite, simple_bitvector_rank_block_size_test) {
       ones_so_far[i + 1] = ones_so_far[i];
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
   for (size_t i = 0; i < 1024; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
     ASSERT_EQ(bv.rank_one(i), ones_so_far[i]);
     ASSERT_EQ(bv.rank_zero(i), i - ones_so_far[i]);
+    ASSERT_EQ(bv.rank(true, i), ones_so_far[i]);
+    ASSERT_EQ(bv.rank(false, i), i - ones_so_far[i]);
   }
 }
 
@@ -435,7 +436,7 @@ TEST(ads_test_suite, simple_bitvector_select_test) {
   bv.set(300);
   bv.set(800);
 
-  ASSERT_EQ(bv.size_in_bits(), 1000);
+  ASSERT_EQ(bv.size(), 1000);
   ASSERT_EQ(bv.size_in_blocks(), 125);
 
   ASSERT_EQ(bv.select_one(1), 0);
@@ -462,7 +463,7 @@ TEST(ads_test_suite, simple_bitvector_select_block_size_test) {
       zero_positions.push_back(i);
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
   for (size_t i = 0; i < 1024; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -488,14 +489,14 @@ TEST(ads_test_suite, simple_bitvector_split_test) {
   bv.set(700);
   bv.set(800);
 
-  ASSERT_EQ(bv.size_in_bits(), 1000);
+  ASSERT_EQ(bv.size(), 1000);
   ASSERT_EQ(bv.size_in_blocks(), 63);
 
   auto *right_half_bv = bv.split();
   EXPECT_EQ(bv.size_in_blocks(), 31);
-  EXPECT_EQ(bv.size_in_bits(), 31 * 16);
+  EXPECT_EQ(bv.size(), 31 * 16);
   EXPECT_EQ(right_half_bv->size_in_blocks(), 32);
-  EXPECT_EQ(right_half_bv->size_in_bits(), 1000 - 31 * 16);
+  EXPECT_EQ(right_half_bv->size(), 1000 - 31 * 16);
   EXPECT_TRUE(bv[0]);
   EXPECT_TRUE(bv[1]);
   EXPECT_TRUE(bv[50]);
@@ -518,13 +519,13 @@ TEST(ads_test_suite, simple_bitvector_split_block_size_test) {
     expected[i] = value;
     bv.set(i, value);
   }
-  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
 
   auto *second_half = bv.split();
-  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size(), 512);
   ASSERT_EQ(bv.size_in_blocks(), 8);
-  ASSERT_EQ(second_half->size_in_bits(), 512);
+  ASSERT_EQ(second_half->size(), 512);
   ASSERT_EQ(second_half->size_in_blocks(), 8);
   for (size_t i = 0; i < 512; ++i) {
     EXPECT_EQ(bv[i], expected[i]);
@@ -578,7 +579,7 @@ TEST(ads_test_suite, simple_bitvector_num_ones_block_size_test) {
       ++ones;
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
   for (size_t i = 0; i < 1024; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -587,11 +588,11 @@ TEST(ads_test_suite, simple_bitvector_num_ones_block_size_test) {
 }
 
 TEST(ads_test_suite, simple_bitvector_push_pop_test) {
-  ads::bv::SimpleBitVector<uint8_t> bv(0);
+  ads::bv::SimpleBitVector<uint8_t> bv;
   for (size_t i = 0; i < 100; ++i) {
     bv.push_back(i % 3 == 1);
   }
-  ASSERT_EQ(bv.size_in_bits(), 100);
+  ASSERT_EQ(bv.size(), 100);
   ASSERT_EQ(bv.size_in_blocks(), 13);
   for (size_t i = 0; i < 100; ++i) {
     ASSERT_EQ(bv[i], i % 3 == 1);
@@ -600,7 +601,7 @@ TEST(ads_test_suite, simple_bitvector_push_pop_test) {
   for (size_t i = 0; i < 50; ++i) {
     bv.pop_back();
   }
-  ASSERT_EQ(bv.size_in_bits(), 50);
+  ASSERT_EQ(bv.size(), 50);
   ASSERT_EQ(bv.size_in_blocks(), 7);
   for (size_t i = 0; i < 50; ++i) {
     ASSERT_EQ(bv[i], i % 3 == 1);
@@ -620,7 +621,7 @@ TEST(ads_test_suite, simple_bitvector_push_pop_block_size_test) {
       bv.push_back(value);
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 1024);
+  ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
   for (size_t i = 0; i < 1024; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -629,7 +630,7 @@ TEST(ads_test_suite, simple_bitvector_push_pop_block_size_test) {
   for (size_t i = 0; i < 512; ++i) {
     bv.pop_back();
   }
-  ASSERT_EQ(bv.size_in_bits(), 512);
+  ASSERT_EQ(bv.size(), 512);
   ASSERT_EQ(bv.size_in_blocks(), 8);
   for (size_t i = 0; i < 512; ++i) {
     ASSERT_EQ(bv[i], expected[i]);
@@ -652,15 +653,15 @@ TEST(ads_test_suite, simple_bitvector_copy_to_back_test) {
     expected[i] = value;
     src.push_back(value);
   }
-  ASSERT_EQ(src.size_in_bits(), 1000);
-  ASSERT_EQ(dst.size_in_bits(), 2100);
+  ASSERT_EQ(src.size(), 1000);
+  ASSERT_EQ(dst.size(), 2100);
 
   // Act
   dst.copy_to_back(src);
 
   // Assert
-  ASSERT_EQ(src.size_in_bits(), 1000);
-  ASSERT_EQ(dst.size_in_bits(), 3100);
+  ASSERT_EQ(src.size(), 1000);
+  ASSERT_EQ(dst.size(), 3100);
   for (size_t i = 0; i < 1000; ++i) {
     ASSERT_EQ(src[i], expected[i + 2100]);
   }
@@ -686,15 +687,15 @@ TEST(ads_test_suite, simple_bitvector_copy_to_back_bug_test) {
     expected[i] = value;
     src.push_back(value);
   }
-  ASSERT_EQ(src.size_in_bits(), 512);
-  ASSERT_EQ(dst.size_in_bits(), 512);
+  ASSERT_EQ(src.size(), 512);
+  ASSERT_EQ(dst.size(), 512);
 
   // Act
   dst.copy_to_back(src);
 
   // Assert
-  ASSERT_EQ(src.size_in_bits(), 512);
-  ASSERT_EQ(dst.size_in_bits(), 1024);
+  ASSERT_EQ(src.size(), 512);
+  ASSERT_EQ(dst.size(), 1024);
   for (size_t i = 0; i < 512; ++i) {
     ASSERT_EQ(src[i], expected[i + 512]);
   }
@@ -713,7 +714,7 @@ TEST(ads_test_suite, simple_bitvector_delete_big_example_test) {
     bv.set(i, value);
     expected[i] = value;
   }
-  ASSERT_EQ(bv.size_in_bits(), expected.size());
+  ASSERT_EQ(bv.size(), expected.size());
   for (size_t i = 0; i < expected.size(); ++i) {
     ASSERT_EQ(bv[i], expected[i]);
   }
@@ -727,7 +728,7 @@ TEST(ads_test_suite, simple_bitvector_delete_big_example_test) {
   }
   for (int i = 0; i < expected.size(); ++i) {
     int deleted_idx = rand() % (expected.size() - i);
-    bv.delete_elem(deleted_idx);
+    bv.delete_element(deleted_idx);
 
     for (int p = 0; p < expected_pos.size(); ++p) {
       if (actual_pos[p] > deleted_idx) {
@@ -744,7 +745,7 @@ TEST(ads_test_suite, simple_bitvector_delete_big_example_test) {
       }
     }
   }
-  ASSERT_EQ(bv.size_in_bits(), 0);
+  ASSERT_EQ(bv.size(), 0);
 }
 
 }  // namespace ads_test

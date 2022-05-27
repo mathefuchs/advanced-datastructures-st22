@@ -1,5 +1,5 @@
-#ifndef RB_TREE_HPP
-#define RB_TREE_HPP
+#ifndef DYNAMIC_BITVECTOR_HPP
+#define DYNAMIC_BITVECTOR_HPP
 
 #include <algorithm>
 #include <cstdint>
@@ -537,7 +537,7 @@ class DynamicBitVector {
         // Leaf node becomes inner node with two children
         node->leaf_data = nullptr;
         node->color = Color::RED;
-        node->num_bits_left_tree = left_leaf->size_in_bits();
+        node->num_bits_left_tree = left_leaf->size();
         node->ones_in_left_tree = left_leaf->num_ones();
 
         // Left child
@@ -593,7 +593,7 @@ class DynamicBitVector {
                    num_ones_leaf, insert_back);
     } else {
       // Index in left subtree
-      node->num_bits_left_tree += src->size_in_bits();
+      node->num_bits_left_tree += src->size();
       node->ones_in_left_tree += num_ones_leaf;
       move_to_leaf(node->left, i, src, num_ones_leaf, insert_back);
     }
@@ -620,7 +620,7 @@ class DynamicBitVector {
       } else {
         // No underflow
         const bool deleted_one = (*node->leaf_data)[i];
-        node->leaf_data->delete_elem(i);
+        node->leaf_data->delete_element(i);
         return deleted_one ? LeafDeletion::DELETED_ONE
                            : LeafDeletion::DELETED_ZERO;
       }
@@ -710,7 +710,7 @@ class DynamicBitVector {
                                   std::ostringstream &tree_structure) {
     if (node) {
       if (node->leaf_data) {
-        tree_structure << "(" << node->leaf_data->size_in_bits() << " "
+        tree_structure << "(" << node->leaf_data->size() << " "
                        << node->leaf_data->num_ones() << ")";
       } else {
         tree_structure << "(" << node->num_bits_left_tree << " "

@@ -28,7 +28,7 @@ class SimpleBitVector {
    * @param block The block.
    * @return The popcount.
    */
-  inline SizeType popcount(BlockType block) {
+  inline SizeType popcount(BlockType block) const {
     if constexpr (sizeof(BlockType) == sizeof(long)) {
       return static_cast<SizeType>(__builtin_popcountl(block));
     } else if constexpr (sizeof(BlockType) == sizeof(long long)) {
@@ -60,6 +60,11 @@ class SimpleBitVector {
   SimpleBitVector(SizeType initial_size)
       : current_size_bits(initial_size),
         blocks(initial_size == 0 ? 0 : get_required_blocks(initial_size), 0) {}
+
+  /**
+   * @brief Constructs a new bit vector.
+   */
+  SimpleBitVector() : SimpleBitVector(0) {}
 
   /**
    * @brief Copy from existing object.
@@ -126,7 +131,7 @@ class SimpleBitVector {
    *
    * @return The size in bits.
    */
-  inline SizeType size_in_bits() const { return current_size_bits; }
+  inline SizeType size() const { return current_size_bits; }
 
   /**
    * @brief Flips the i-th bit.
@@ -158,7 +163,8 @@ class SimpleBitVector {
       const SizeType block_pos = i % BLOCK_SIZE;
       bool last_block_value = (*this)[block_num * BLOCK_SIZE + BLOCK_SIZE - 1];
       if ((block_pos + 1) % BLOCK_SIZE != 0) {
-        // Shift remaining values in block (only necessary when not inserting at end of block)
+        // Shift remaining values in block (only necessary when not inserting at
+        // end of block)
         const BlockType values = ((~0ull << block_pos) & blocks[block_num])
                                  << 1;
         const BlockType mask = (~0ull << (block_pos + 1));
@@ -184,7 +190,7 @@ class SimpleBitVector {
    *
    * @param i The index to delete.
    */
-  inline void delete_elem(SizeType i) {
+  inline void delete_element(SizeType i) {
     // Update counters
     --current_size_bits;
 
@@ -228,7 +234,7 @@ class SimpleBitVector {
    * @param i The position.
    * @return Number of ones.
    */
-  inline SizeType rank_one(SizeType i) {
+  inline SizeType rank_one(SizeType i) const {
     const SizeType block_num = i / BLOCK_SIZE;
     SizeType rank = popcount(blocks[block_num] & ~(~0ull << (i % BLOCK_SIZE)));
     for (SizeType block = 0; block < block_num; ++block) {
@@ -243,7 +249,7 @@ class SimpleBitVector {
    * @param i The position.
    * @return Number of zeros.
    */
-  inline SizeType rank_zero(SizeType i) { return i - rank_one(i); }
+  inline SizeType rank_zero(SizeType i) const { return i - rank_one(i); }
 
   /**
    * @brief Get the position of the i-th one.
@@ -251,7 +257,7 @@ class SimpleBitVector {
    * @param i The i-th one (one-based index).
    * @return The position.
    */
-  inline SizeType select_one(SizeType i) {
+  inline SizeType select_one(SizeType i) const {
     // Determine which block to scan
     SizeType select = i;
     SizeType block_idx = 0;
@@ -286,7 +292,7 @@ class SimpleBitVector {
    * @param i The i-th zero (one-based index).
    * @return The position.
    */
-  inline SizeType select_zero(SizeType i) {
+  inline SizeType select_zero(SizeType i) const {
     // Determine which block to scan
     SizeType select = i;
     SizeType block_idx = 0;
@@ -313,6 +319,36 @@ class SimpleBitVector {
     }
 
     return block_pos;
+  }
+
+  /**
+   * @brief Number of ones/zeros until position i (exclusive).
+   *
+   * @param rank_one Whether to count ones.
+   * @param i The position to count up to.
+   * @return The rank.
+   */
+  SizeType rank(bool rank_one, SizeType i) const {
+    if (rank_one) {
+      return this->rank_one(i);
+    } else {
+      return this->rank_zero(i);
+    }
+  }
+
+  /**
+   * @brief Select the i-th one/zero.
+   *
+   * @param select_one Whether to select ones.
+   * @param i The i-th relevant bit.
+   * @return The select result.
+   */
+  SizeType select(bool select_one, SizeType i) const {
+    if (select_one) {
+      return this->select_one(i);
+    } else {
+      return this->select_zero(i);
+    }
   }
 
   /**
@@ -347,7 +383,7 @@ class SimpleBitVector {
    *
    * @return The number of ones.
    */
-  SizeType num_ones() {
+  SizeType num_ones() const {
     SizeType rank = 0;
     for (SizeType block = 0; block < size_in_blocks(); ++block) {
       rank += popcount(blocks[block]);
@@ -365,7 +401,7 @@ class SimpleBitVector {
   /**
    * @brief Pop value from the end.
    */
-  void pop_back() { delete_elem(current_size_bits - 1); }
+  void pop_back() { delete_element(current_size_bits - 1); }
 
   /**
    * @brief Copies bits from the given bitvector into this bitvector's back.
@@ -380,7 +416,7 @@ class SimpleBitVector {
 
     // Reserve enough blocks
     const SizeType required_blocks =
-        get_required_blocks(current_size_bits + other.size_in_bits());
+        get_required_blocks(current_size_bits + other.size());
     const SizeType old_num_blocks = size_in_blocks();
     for (SizeType i = old_num_blocks; i < required_blocks; ++i) {
       blocks.push_back(0);
@@ -414,7 +450,7 @@ class SimpleBitVector {
     }
 
     // Update counter
-    current_size_bits += other.size_in_bits();
+    current_size_bits += other.size();
   }
 };
 
@@ -438,7 +474,7 @@ constexpr SizeType SimpleBitVector<BlockType, SizeType>::BLOCK_SIZE;
 template <class BlockType, class SizeType>
 static std::ostream& operator<<(
     std::ostream& os, const SimpleBitVector<BlockType, SizeType>& bv) {
-  for (SizeType i = 0; i < bv.size_in_bits(); ++i) {
+  for (SizeType i = 0; i < bv.size(); ++i) {
     os << (bv[i] ? "1" : "0");
   }
   os << "\n";
