@@ -703,4 +703,48 @@ TEST(ads_test_suite, simple_bitvector_copy_to_back_bug_test) {
   }
 }
 
+TEST(ads_test_suite, simple_bitvector_delete_big_example_test) {
+  // Build large simple bitvector
+  srand(0);
+  std::vector<bool> expected(10000, false);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> bv(expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    bool value = rand() % 2 == 0;
+    bv.set(i, value);
+    expected[i] = value;
+  }
+  ASSERT_EQ(bv.size_in_bits(), expected.size());
+  for (size_t i = 0; i < expected.size(); ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+
+  // Fully delete it again
+  std::vector<int> expected_pos;
+  std::vector<int> actual_pos;
+  for (int i = 0; i < expected.size(); ++i) {
+    expected_pos.push_back(i);
+    actual_pos.push_back(i);
+  }
+  for (int i = 0; i < expected.size(); ++i) {
+    int deleted_idx = rand() % (expected.size() - i);
+    bv.delete_elem(deleted_idx);
+
+    for (int p = 0; p < expected_pos.size(); ++p) {
+      if (actual_pos[p] > deleted_idx) {
+        --actual_pos[p];
+      } else if (actual_pos[p] == deleted_idx) {
+        actual_pos[p] = -1;
+        expected_pos[p] = -1;
+      }
+    }
+
+    for (int p = 0; p < expected_pos.size(); ++p) {
+      if (expected_pos[p] != -1) {
+        ASSERT_EQ(bv[actual_pos[p]], expected[expected_pos[p]]);
+      }
+    }
+  }
+  ASSERT_EQ(bv.size_in_bits(), 0);
+}
+
 }  // namespace ads_test
