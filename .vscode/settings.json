@@ -100,6 +100,9 @@
     "*.tcc": "cpp",
     "memory_resource": "cpp",
     "stop_token": "cpp",
-    "cinttypes": "cpp"
+    "cinttypes": "cpp",
+    "forward_list": "cpp",
+    "list": "cpp",
+    "unordered_set": "cpp"
   }
 }

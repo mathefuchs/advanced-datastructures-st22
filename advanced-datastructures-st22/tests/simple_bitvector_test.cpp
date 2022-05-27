@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
 #include <vector>
 
 namespace ads_test {
@@ -400,6 +401,39 @@ TEST(ads_test_suite, simple_bitvector_push_pop_test) {
   ASSERT_EQ(bv.size_in_blocks(), 7);
   for (size_t i = 0; i < 50; ++i) {
     ASSERT_EQ(bv[i], i % 3 == 1);
+  }
+}
+
+TEST(ads_test_suite, simple_bitvector_copy_to_back_test) {
+  // Prepare
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> dst(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> src(0);
+  std::vector<bool> expected(3100, false);
+  for (size_t i = 0; i < 2100; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    dst.push_back(value);
+  }
+  for (size_t i = 2100; i < 3100; ++i) {
+    bool value = rand() % 2 == 1;
+    expected[i] = value;
+    src.push_back(value);
+  }
+  ASSERT_EQ(src.size_in_bits(), 1000);
+  ASSERT_EQ(dst.size_in_bits(), 2100);
+
+  // Act
+  dst.copy_to_back(src);
+
+  // Assert
+  ASSERT_EQ(src.size_in_bits(), 1000);
+  ASSERT_EQ(dst.size_in_bits(), 3100);
+  for (size_t i = 0; i < 1000; ++i) {
+    ASSERT_EQ(src[i], expected[i + 2100]);
+  }
+  for (size_t i = 0; i < 3100; ++i) {
+    ASSERT_EQ(dst[i], expected[i]);
   }
 }
 

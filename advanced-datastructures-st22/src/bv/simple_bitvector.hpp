@@ -37,6 +37,16 @@ class SimpleBitVector {
     }
   }
 
+  /**
+   * @brief Gets the number of required blocks.
+   *
+   * @param num_bits The number of bits.
+   * @return The number of blocks.
+   */
+  static constexpr SizeType get_required_blocks(SizeType num_bits) {
+    return (num_bits - 1) / BLOCK_SIZE + 1;
+  }
+
  public:
   static constexpr SizeType BLOCK_SIZE =
       static_cast<SizeType>(8ul * sizeof(BlockType));
@@ -48,8 +58,7 @@ class SimpleBitVector {
    */
   SimpleBitVector(SizeType initial_size)
       : current_size_bits(initial_size),
-        blocks(initial_size == 0 ? 0 : (initial_size - 1) / BLOCK_SIZE + 1, 0) {
-  }
+        blocks(initial_size == 0 ? 0 : get_required_blocks(initial_size), 0) {}
 
   /**
    * @brief Accesses the bit vector at index i.
@@ -299,7 +308,7 @@ class SimpleBitVector {
    *
    * @return The second half.
    */
-  SimpleBitVector<BlockType, SizeType>* split() {
+  SimpleBitVector<BlockType, SizeType> *split() {
     // Init new bitvector with #blocks / 2 new blocks
     // (plus one to avoid immediate allocation on insert)
     const SizeType moved_blocks = size_in_blocks() / 2;
@@ -345,6 +354,48 @@ class SimpleBitVector {
    * @brief Pop value from the end.
    */
   void pop_back() { delete_elem(current_size_bits - 1); }
+
+  /**
+   * @brief Copies bits from the given bitvector into this bitvector's back.
+   *
+   * @param other The other bitvector.
+   */
+  void copy_to_back(const SimpleBitVector<BlockType, SizeType> &other) {
+    // Check that other vector is not empty
+    if (other.size_in_blocks() == 0) {
+      return;
+    }
+
+    // Reserve enough blocks
+    const SizeType required_blocks =
+        get_required_blocks(current_size_bits + other.size_in_bits());
+    const SizeType old_num_blocks = size_in_blocks();
+    for (SizeType i = old_num_blocks; i < required_blocks; ++i) {
+      blocks.push_back(0);
+    }
+
+    // Copy all blocks
+    const SizeType insert_pos = current_size_bits % BLOCK_SIZE;
+    BlockType last_block = blocks[old_num_blocks - 1];
+    BlockType next_block = other.blocks[0];
+    SizeType next_block_to_copy = 1;
+    for (SizeType i = old_num_blocks - 1; i < size_in_blocks(); ++i) {
+      // Copy block with offset
+      const BlockType mask = ~0ull << insert_pos;
+      const SizeType last_block_shift =
+          i == old_num_blocks - 1 ? 0 : BLOCK_SIZE - insert_pos;
+      blocks[i] = ((last_block >> last_block_shift) & ~mask) |
+                  ((next_block << insert_pos) & mask);
+      last_block = next_block;
+      next_block = next_block_to_copy < other.size_in_blocks()
+                       ? other.blocks[next_block_to_copy]
+                       : 0;
+      ++next_block_to_copy;
+    }
+
+    // Update counter
+    current_size_bits += other.size_in_bits();
+  }
 };
 
 /**
