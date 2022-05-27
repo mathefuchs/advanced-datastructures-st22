@@ -241,7 +241,16 @@ class DynamicBitVector {
       return;
     }
     if (node == root) {
-      root = nullptr;
+      // Make root leaf
+      if (root->left->leaf_data) {
+        root->leaf_data = root->left->leaf_data;
+      } else {
+        root->leaf_data = root->right->leaf_data;
+      }
+      delete root->left;
+      delete root->right;
+      root->left = nullptr;
+      root->right = nullptr;
       return;
     }
 
@@ -574,19 +583,19 @@ class DynamicBitVector {
         node->leaf_data->copy_to_back(*src);
         delete src;
       } else {
-        src->copy_to_back(node->leaf_data);
+        src->copy_to_back(*node->leaf_data);
         delete node->leaf_data;
         node->leaf_data = src;
       }
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
       move_to_leaf(node->right, i - node->num_bits_left_tree, src,
-                   num_ones_leaf);
+                   num_ones_leaf, insert_back);
     } else {
       // Index in left subtree
       node->num_bits_left_tree += src->size_in_bits();
       node->ones_in_left_tree += num_ones_leaf;
-      move_to_leaf(node->left, i, src, num_ones_leaf);
+      move_to_leaf(node->left, i, src, num_ones_leaf, insert_back);
     }
   }
 
@@ -630,32 +639,28 @@ class DynamicBitVector {
       }
       if (num_bits - node->num_bits_left_tree ==
           MinLeafSizeBlocks * Leaf::BLOCK_SIZE) {
-        const auto second_attempt =
+        const auto stealing_attempt =
             delete_at_node(node->left, node->num_bits_left_tree - 1,
                            node->num_bits_left_tree, 0, false);
-        switch (second_attempt) {
+        switch (stealing_attempt) {
           case LeafDeletion::UNDERFLOW:
             // Merge leaves
             move_to_leaf(node->left, node->num_bits_left_tree,
                          node->right->leaf_data, ones - node->ones_in_left_tree,
                          true);
-            delete node->right;
-            node->right = nullptr;
+            rebalance_after_deletion(node);
             return deletion_successful;
           case LeafDeletion::DELETED_ZERO:
             insert_at_node(node->right, 0, false);
             --node->num_bits_left_tree;
             break;
           case LeafDeletion::DELETED_ONE:
-            insert_at_node(node->left, 0, true);
+            insert_at_node(node->right, 0, true);
             --node->num_bits_left_tree;
             --node->ones_in_left_tree;
             break;
         }
       }
-
-      // Do rebalancing if necessary
-      rebalance_after_deletion(node);
       return deletion_successful;
 
     } else {
@@ -671,30 +676,26 @@ class DynamicBitVector {
       }
       if (node->num_bits_left_tree == MinLeafSizeBlocks * Leaf::BLOCK_SIZE) {
         // Correct underflow
-        const auto second_attempt = delete_at_node(
+        const auto stealing_attempt = delete_at_node(
             node->right, 0, num_bits - node->num_bits_left_tree, 0, false);
-        switch (second_attempt) {
+        switch (stealing_attempt) {
           case LeafDeletion::UNDERFLOW:
             // Merge leaves
             move_to_leaf(node->right, 0, node->left->leaf_data,
                          node->ones_in_left_tree, false);
-            delete node->left;
-            node->left = nullptr;
+            rebalance_after_deletion(node);
             return deletion_successful;
           case LeafDeletion::DELETED_ZERO:
-            insert_at_node(node->left, node->num_bits_left_tree, false);
+            insert_at_node(node->left, node->num_bits_left_tree - 1, false);
             break;
           case LeafDeletion::DELETED_ONE:
-            insert_at_node(node->left, node->num_bits_left_tree, true);
+            insert_at_node(node->left, node->num_bits_left_tree - 1, true);
             ++node->ones_in_left_tree;
             break;
         }
       } else {
         --node->num_bits_left_tree;
       }
-
-      // Do rebalancing if necessary
-      rebalance_after_deletion(node);
       return deletion_successful;
     }
   }
@@ -851,6 +852,7 @@ class DynamicBitVector {
    */
   std::string get_tree_structure() {
     std::ostringstream tree_structure;
+    tree_structure << size() << " " << num_ones() << " ";
     get_tree_structure_at_node(root, tree_structure);
     return tree_structure.str();
   }
