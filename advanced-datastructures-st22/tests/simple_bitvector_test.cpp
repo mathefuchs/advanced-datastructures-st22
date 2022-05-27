@@ -243,21 +243,22 @@ TEST(ads_test_suite, simple_bitvector_delete_middle_test) {
 
 TEST(ads_test_suite, simple_bitvector_delete_full_test) {
   // Expected values
-  std::vector<bool> set_elements(1000, false);
-  for (size_t i = 0; i < 75; ++i) {
-    set_elements[7 + 13 * i] = true;
+  srand(0);
+  std::vector<bool> set_elements(10000, false);
+  for (size_t i = 0; i < 10000; ++i) {
+    set_elements[i] = rand() % 2;
   }
 
   // Set values
-  ads::bv::SimpleBitVector<uint32_t> bv(1000);
-  for (size_t i = 0; i < 75; ++i) {
-    bv.set(7 + 13 * i);
+  ads::bv::SimpleBitVector<uint32_t> bv(10000);
+  for (size_t i = 0; i < 10000; ++i) {
+    bv.set(i, set_elements[i]);
   }
 
   // Insert values
   size_t i = 0;
   for (auto it = std::begin(set_elements); it != std::end(set_elements); ++it) {
-    if (i % 20 == 0) {
+    if (i % 3 == 0) {
       it = set_elements.erase(it);
       bv.delete_elem(i);
     }
@@ -433,6 +434,40 @@ TEST(ads_test_suite, simple_bitvector_copy_to_back_test) {
     ASSERT_EQ(src[i], expected[i + 2100]);
   }
   for (size_t i = 0; i < 3100; ++i) {
+    ASSERT_EQ(dst[i], expected[i]);
+  }
+}
+
+TEST(ads_test_suite, simple_bitvector_copy_to_back_bug_test) {
+  // Bug when bit-vectors have sizes that are multiples of the block size.
+  // Prepare
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> dst(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> src(0);
+  std::vector<bool> expected(1024, false);
+  for (size_t i = 0; i < 512; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    dst.push_back(value);
+  }
+  for (size_t i = 512; i < 1024; ++i) {
+    bool value = rand() % 2 == 1;
+    expected[i] = value;
+    src.push_back(value);
+  }
+  ASSERT_EQ(src.size_in_bits(), 512);
+  ASSERT_EQ(dst.size_in_bits(), 512);
+
+  // Act
+  dst.copy_to_back(src);
+
+  // Assert
+  ASSERT_EQ(src.size_in_bits(), 512);
+  ASSERT_EQ(dst.size_in_bits(), 1024);
+  for (size_t i = 0; i < 512; ++i) {
+    ASSERT_EQ(src[i], expected[i + 512]);
+  }
+  for (size_t i = 0; i < 1024; ++i) {
     ASSERT_EQ(dst[i], expected[i]);
   }
 }

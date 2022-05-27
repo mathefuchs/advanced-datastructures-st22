@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <sstream>
 #include <vector>
 
 namespace ads {
@@ -59,6 +60,14 @@ class SimpleBitVector {
   SimpleBitVector(SizeType initial_size)
       : current_size_bits(initial_size),
         blocks(initial_size == 0 ? 0 : get_required_blocks(initial_size), 0) {}
+
+  /**
+   * @brief Copy from existing object.
+   *
+   * @param other The other bitvector.
+   */
+  SimpleBitVector(const SimpleBitVector& other)
+      : current_size_bits(other.current_size_bits), blocks(other.blocks) {}
 
   /**
    * @brief Accesses the bit vector at index i.
@@ -308,7 +317,7 @@ class SimpleBitVector {
    *
    * @return The second half.
    */
-  SimpleBitVector<BlockType, SizeType> *split() {
+  SimpleBitVector<BlockType, SizeType>* split() {
     // Init new bitvector with #blocks / 2 new blocks
     // (plus one to avoid immediate allocation on insert)
     const SizeType moved_blocks = size_in_blocks() / 2;
@@ -360,7 +369,7 @@ class SimpleBitVector {
    *
    * @param other The other bitvector.
    */
-  void copy_to_back(const SimpleBitVector<BlockType, SizeType> &other) {
+  void copy_to_back(const SimpleBitVector<BlockType, SizeType>& other) {
     // Check that other vector is not empty
     if (other.size_in_blocks() == 0) {
       return;
@@ -376,21 +385,29 @@ class SimpleBitVector {
 
     // Copy all blocks
     const SizeType insert_pos = current_size_bits % BLOCK_SIZE;
-    BlockType last_block = blocks[old_num_blocks - 1];
-    BlockType next_block = other.blocks[0];
-    SizeType next_block_to_copy = 1;
-    for (SizeType i = old_num_blocks - 1; i < size_in_blocks(); ++i) {
-      // Copy block with offset
-      const BlockType mask = ~0ull << insert_pos;
-      const SizeType last_block_shift =
-          i == old_num_blocks - 1 ? 0 : BLOCK_SIZE - insert_pos;
-      blocks[i] = ((last_block >> last_block_shift) & ~mask) |
-                  ((next_block << insert_pos) & mask);
-      last_block = next_block;
-      next_block = next_block_to_copy < other.size_in_blocks()
-                       ? other.blocks[next_block_to_copy]
-                       : 0;
-      ++next_block_to_copy;
+    if (insert_pos != 0) {
+      // Insert position not aligned with block size
+      BlockType last_block = blocks[old_num_blocks - 1];
+      BlockType next_block = other.blocks[0];
+      SizeType next_block_to_copy = 1;
+      for (SizeType i = old_num_blocks - 1; i < size_in_blocks(); ++i) {
+        // Copy block with offset
+        const BlockType mask = ~0ull << insert_pos;
+        const SizeType last_block_shift =
+            i == old_num_blocks - 1 ? 0 : BLOCK_SIZE - insert_pos;
+        blocks[i] = ((last_block >> last_block_shift) & ~mask) |
+                    ((next_block << insert_pos) & mask);
+        last_block = next_block;
+        next_block = next_block_to_copy < other.size_in_blocks()
+                         ? other.blocks[next_block_to_copy]
+                         : 0;
+        ++next_block_to_copy;
+      }
+    } else {
+      // Insert position aligned with block, makes things easier
+      for (SizeType i = old_num_blocks; i < size_in_blocks(); ++i) {
+        blocks[i] = other.blocks[i - old_num_blocks];
+      }
     }
 
     // Update counter
@@ -405,6 +422,25 @@ class SimpleBitVector {
  */
 template <class BlockType, class SizeType>
 constexpr SizeType SimpleBitVector<BlockType, SizeType>::BLOCK_SIZE;
+
+/**
+ * @brief Custom operator to print bit-vectors.
+ *
+ * @tparam BlockType The block type.
+ * @tparam SizeType The size type.
+ * @param os The output stream.
+ * @param bv The bit vector.
+ * @return The output stream.
+ */
+template <class BlockType, class SizeType>
+static std::ostream& operator<<(
+    std::ostream& os, const SimpleBitVector<BlockType, SizeType>& bv) {
+  for (SizeType i = 0; i < bv.size_in_bits(); ++i) {
+    os << (bv[i] ? "1" : "0");
+  }
+  os << "\n";
+  return os;
+}
 
 }  // namespace bv
 }  // namespace ads
