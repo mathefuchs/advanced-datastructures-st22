@@ -1,4 +1,6 @@
 lcov --directory build --capture --output-file coverage.info
 lcov --list coverage.info
 
-sh <(curl -s https://codecov.io/bash) -f coverage.info || echo "Codecov did not collect coverage reports"
+curl -Os https://uploader.codecov.io/latest/linux/codecov
+chmod +x codecov
+./codecov
