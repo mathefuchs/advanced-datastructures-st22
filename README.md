@@ -2,7 +2,7 @@
 
 ### Build status
 
-[![Run gtests](https://github.com/mathefuchs/advanced-datastructures-st22/actions/workflows/ci_gtest.yml/badge.svg?branch=main)](https://github.com/mathefuchs/advanced-datastructures-st22/actions/workflows/ci_gtest.yml)
+[![Run gtests](https://github.com/mathefuchs/advanced-datastructures-st22/actions/workflows/ci_gtest.yml/badge.svg?branch=main)](https://github.com/mathefuchs/advanced-datastructures-st22/actions/workflows/ci_gtest.yml) [![codecov](https://codecov.io/gh/mathefuchs/advanced-datastructures-st22/branch/main/graph/badge.svg?token=JV34554DW2)](https://codecov.io/gh/mathefuchs/advanced-datastructures-st22)
 
 ### Instructions
 * Clone repository and enter directory.

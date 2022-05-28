@@ -672,6 +672,16 @@ TEST(ads_test_suite, simple_bitvector_copy_to_back_test) {
   }
 }
 
+TEST(ads_test_suite, simple_bitvector_copy_to_back_empty_test) {
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> src(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> dst(10);
+  ASSERT_EQ(src.size(), 0);
+  ASSERT_EQ(dst.size(), 10);
+  dst.copy_to_back(src);
+  ASSERT_EQ(src.size(), 0);
+  ASSERT_EQ(dst.size(), 10);
+}
+
 TEST(ads_test_suite, simple_bitvector_copy_to_back_bug_test) {
   // Bug when bit-vectors have sizes that are multiples of the block size.
   // Prepare
@@ -752,7 +762,8 @@ TEST(ads_test_suite, simple_bitvector_delete_big_example_test) {
 
 TEST(ads_test_suite, simple_bitvector_space_used_test) {
   ads::bv::SimpleBitVector<uint8_t, uint16_t> bv(1000);
-  ASSERT_EQ(bv.space_used(), (1000 / 8 * sizeof(uint8_t) + sizeof(uint16_t)) * 8ull);
+  ASSERT_EQ(bv.space_used(),
+            (1000 / 8 * sizeof(uint8_t) + sizeof(uint16_t)) * 8ull);
 }
 
 }  // namespace ads_test
