@@ -16,9 +16,6 @@ add_subdirectory(external/googletest)
 add_subdirectory(advanced-datastructures-st22)
 add_subdirectory(advanced-datastructures-st22/tests)
 
-# Code coverage
-option(CODE_COVERAGE "Enable coverage reporting" OFF)
-
 # Print compiler flags
 message(STATUS "CMAKE_CXX_COMPILER_ID: ${CMAKE_CXX_COMPILER_ID}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
