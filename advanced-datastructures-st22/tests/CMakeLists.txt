@@ -10,4 +10,8 @@ add_executable(ads_test
 )
 target_link_libraries(ads_test gtest gtest_main)
 
+# Code coverage
+target_compile_options(ads_test PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+target_link_options(ads_test PRIVATE -lgcov)
+
 add_test(ads_test ads_test_suite)

@@ -470,9 +470,11 @@ TEST(ads_test_suite, simple_bitvector_select_block_size_test) {
   }
   for (size_t i = 0; i < one_positions.size(); ++i) {
     ASSERT_EQ(bv.select_one(i + 1), one_positions[i]);
+    ASSERT_EQ(bv.select(true, i + 1), one_positions[i]);
   }
   for (size_t i = 0; i < zero_positions.size(); ++i) {
     ASSERT_EQ(bv.select_zero(i + 1), zero_positions[i]);
+    ASSERT_EQ(bv.select(false, i + 1), zero_positions[i]);
   }
 }
 
