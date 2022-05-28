@@ -17,10 +17,10 @@ jobs:
       run: sudo apt install lcov
 
     - name: Build project
-      run: sh build.sh && rm -rf build
+      run: bash build.sh && rm -rf build
 
     - name: Build project again with coverage
-      run: sh build_with_coverage.sh
+      run: bash build_with_coverage.sh
 
     - name: Run gtests
       run: GTEST_OUTPUT=xml:test-results/ GTEST_COLOR=1 ./build/advanced-datastructures-st22/tests/ads_test -V
@@ -33,4 +33,4 @@ jobs:
         path: test-results/**/*.xml
 
     - name: Extract coverage
-      run: sh extract_coverage.sh
+      run: bash extract_coverage.sh
