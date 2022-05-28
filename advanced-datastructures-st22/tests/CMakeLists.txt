@@ -9,13 +9,7 @@ add_executable(ads_test
   dynamic_bitvector_test.cpp
   bv_integration_test.cpp
 )
-target_link_libraries(ads_test gtest gtest_main)
+target_link_libraries(ads_test PUBLIC coverage_config gtest gtest_main)
 
 # Add test suite
 add_test(ads_test ads_test_suite)
-
-# Code coverage
-if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  target_compile_options(ads_test INTERFACE -O0 -g -fprofile-arcs -ftest-coverage)
-  target_link_options(ads_test INTERFACE -lgcov)
-endif()

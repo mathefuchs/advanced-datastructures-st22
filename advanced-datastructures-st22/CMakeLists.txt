@@ -21,3 +21,4 @@ endif()
 # Main executable
 include_directories(src)
 add_executable(ads_programm_a src/main.cpp)
+target_link_libraries(ads_programm_a PUBLIC coverage_config)

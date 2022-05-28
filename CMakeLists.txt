@@ -9,6 +9,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -mtune=native -march=native")
 
+# Code Coverage
+add_library(coverage_config INTERFACE)
+option(CODE_COVERAGE "Enable coverage reporting" OFF)
+if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  target_compile_options(coverage_config INTERFACE -O0 -g --coverage)
+  target_link_options(coverage_config INTERFACE --coverage)
+endif()
+
 # External projects
 add_subdirectory(external/googletest)
 
