@@ -11,4 +11,11 @@ add_executable(ads_test
 )
 target_link_libraries(ads_test gtest gtest_main)
 
+# Add test suite
 add_test(ads_test ads_test_suite)
+
+# Code coverage
+if(CODE_COVERAGE AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  target_compile_options(ads_test INTERFACE -O0 -g --coverage)
+  target_link_options(ads_test INTERFACE --coverage)
+endif()
