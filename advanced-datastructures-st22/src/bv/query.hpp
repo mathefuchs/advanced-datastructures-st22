@@ -1,5 +1,5 @@
-#ifndef BV_QUERY_HPP
-#define BV_QUERY_HPP
+#ifndef QUERY_HPP
+#define QUERY_HPP
 
 #include <chrono>
 #include <cstdint>
@@ -158,9 +158,13 @@ struct BVQuery {
 
 /**
  * @brief Represents a bit-vector problem instance.
+ *
+ * @tparam BlockType The block type.
+ * @tparam SizeType The size type.
  */
+template <class BlockType, class SizeType>
 struct BVProblemInstance {
-  SimpleBitVector<uint64_t> bv;
+  SimpleBitVector<BlockType, SizeType> bv;
   std::vector<BVQuery> queries;
 };
 
@@ -170,7 +174,8 @@ struct BVProblemInstance {
  * @param input_file_name The input file name.
  * @return The problem instance.
  */
-static inline BVProblemInstance parse_bv_input(
+template <class BlockType, class SizeType>
+static inline BVProblemInstance<BlockType, SizeType> parse_bv_input(
     const std::string& input_file_name) {
   // Load input file into memory
   std::ifstream input_stream(input_file_name);
@@ -181,7 +186,7 @@ static inline BVProblemInstance parse_bv_input(
     size_t initial_size = std::stoul(line);
 
     // Create problem instance object
-    BVProblemInstance instance{SimpleBitVector<uint64_t>(initial_size), {}};
+    BVProblemInstance<BlockType, SizeType> instance{{initial_size}, {}};
 
     // Parse initial bit-vector
     size_t i = 0;
@@ -223,7 +228,7 @@ static inline BVProblemInstance parse_bv_input(
       }
 
       // Append query
-      instance.queries.emplace_back(arg1, arg2, type);
+      instance.queries.push_back(BVQuery{arg1, arg2, type});
     }
 
     // Return problem instance
@@ -233,7 +238,7 @@ static inline BVProblemInstance parse_bv_input(
     std::cerr << "Could not open file \"" << input_file_name << "\"."
               << std::endl;
     ads::util::malformed_input();
-    return {SimpleBitVector<uint64_t>(0), {}};
+    return {{}, {}};
   }
 }
 

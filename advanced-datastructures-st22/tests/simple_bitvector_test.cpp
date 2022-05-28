@@ -750,4 +750,9 @@ TEST(ads_test_suite, simple_bitvector_delete_big_example_test) {
   ASSERT_EQ(bv.size(), 0);
 }
 
+TEST(ads_test_suite, simple_bitvector_space_used_test) {
+  ads::bv::SimpleBitVector<uint8_t, uint16_t> bv(1000);
+  ASSERT_EQ(bv.space_used(), (1000 / 8 * sizeof(uint8_t) + sizeof(uint16_t)) * 8ull);
+}
+
 }  // namespace ads_test

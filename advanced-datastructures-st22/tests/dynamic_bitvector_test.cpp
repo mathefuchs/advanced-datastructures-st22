@@ -337,4 +337,31 @@ TEST(ads_test_suite, dynamic_bitvector_delete_big_example_test) {
   ASSERT_EQ(bv.size(), 0);
 }
 
+TEST(ads_test_suite, dynamic_bitvector_push_pop_test) {
+  ads::bv::DynamicBitVector<uint8_t, uint8_t, 1, 2, 4> bv;
+  for (size_t i = 0; i < 100; ++i) {
+    bv.push_back(i % 3 == 1);
+  }
+  ASSERT_EQ(bv.size(), 100);
+  for (size_t i = 0; i < 100; ++i) {
+    ASSERT_EQ(bv[i], i % 3 == 1);
+  }
+
+  for (size_t i = 0; i < 50; ++i) {
+    bv.pop_back();
+  }
+  ASSERT_EQ(bv.size(), 50);
+  for (size_t i = 0; i < 50; ++i) {
+    ASSERT_EQ(bv[i], i % 3 == 1);
+  }
+}
+
+TEST(ads_test_suite, dynamic_bitvector_space_used_test) {
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 32, 64, 128> bv;
+  for (size_t i = 0; i < 10000; ++i) {
+    bv.push_back(i % 3 == 1);
+  }
+  ASSERT_EQ(bv.space_used(), 11712);
+}
+
 }  // namespace ads_test

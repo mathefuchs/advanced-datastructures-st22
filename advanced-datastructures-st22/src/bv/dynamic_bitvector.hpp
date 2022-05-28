@@ -73,6 +73,8 @@ class DynamicBitVector {
     Leaf *leaf_data = nullptr;
   };
 
+  static constexpr size_t NODE_SIZE = sizeof(Node) * 8ull;
+
   Node *root;
   SizeType current_size;
   SizeType total_ones;
@@ -722,6 +724,24 @@ class DynamicBitVector {
     }
   }
 
+  /**
+   * @brief Returns the space usage in bits.
+   *
+   * @return The space usage in bits.
+   */
+  inline SizeType space_used_at_node(Node *node) const {
+    if (node->leaf_data) {
+      // Space for leaf block and leaf data
+      return NODE_SIZE + node->leaf_data->space_used();
+    } else {
+      // Space for subtrees and node
+      const SizeType left = node->left ? space_used_at_node(node->left) : 0ull;
+      const SizeType right =
+          node->right ? space_used_at_node(node->right) : 0ull;
+      return left + right + NODE_SIZE;
+    }
+  }
+
  public:
   /**
    * @brief Construct a new empty dynamic bitvector.
@@ -730,7 +750,8 @@ class DynamicBitVector {
     root->leaf_data = new Leaf(0);
   }
 
-  DynamicBitVector(DynamicBitVector &) = delete;
+  DynamicBitVector(const DynamicBitVector &) = delete;
+  DynamicBitVector &operator=(const DynamicBitVector &) = delete;
   DynamicBitVector(DynamicBitVector &&) = delete;
 
   /**
@@ -842,6 +863,34 @@ class DynamicBitVector {
         --total_ones;
       }
       --current_size;
+    }
+  }
+
+  /**
+   * @brief Append value at the end.
+   *
+   * @param value The value to append.
+   */
+  void push_back(bool value) { insert(current_size, value); }
+
+  /**
+   * @brief Pop value from the end.
+   */
+  void pop_back() { delete_element(current_size - 1); }
+
+  /**
+   * @brief Returns the space usage in bits.
+   *
+   * @return The space usage in bits.
+   */
+  inline SizeType space_used() const {
+    if (root) {
+      // Size of attributes and the complete tree
+      return (2 * sizeof(SizeType) + sizeof(Node *)) * 8ull +
+             space_used_at_node(root);
+    } else {
+      // Only size of attributes
+      return (2 * sizeof(SizeType) + sizeof(Node *)) * 8ull;
     }
   }
 

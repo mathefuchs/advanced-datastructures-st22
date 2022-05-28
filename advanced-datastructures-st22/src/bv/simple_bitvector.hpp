@@ -452,6 +452,16 @@ class SimpleBitVector {
     // Update counter
     current_size_bits += other.size();
   }
+
+  /**
+   * @brief Returns the space usage in bits.
+   *
+   * @return The space usage in bits.
+   */
+  inline SizeType space_used() const {
+    // Space for all blocks plus the current size variable
+    return (size_in_blocks() * sizeof(BlockType) + sizeof(SizeType)) * 8ull;
+  }
 };
 
 /**
