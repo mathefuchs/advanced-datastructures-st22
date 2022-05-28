@@ -34,3 +34,11 @@ jobs:
 
     - name: Extract coverage
       run: bash extract_coverage.sh
+
+    - uses: codecov/codecov-action@v2
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.info
+        name: advanced-datastructures-st22
+        fail_ci_if_error: true
+        verbose: true

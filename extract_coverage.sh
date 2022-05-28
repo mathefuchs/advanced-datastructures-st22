@@ -1,6 +1,3 @@
-lcov --directory build --capture --output-file coverage.info
+lcov --directory build/advanced-datastructures-st22 --capture --output-file coverage.info --no-external
+lcov --remove coverage.info '/usr/*' --output-file coverage.info
 lcov --list coverage.info
-
-curl -Os https://uploader.codecov.io/latest/linux/codecov
-chmod +x codecov
-./codecov
