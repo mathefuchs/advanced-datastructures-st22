@@ -82,10 +82,15 @@ static inline void run_bv(const std::string &input_file,
 
   // Write output to file
   std::ofstream ofs(output_file);
-  for (const auto &query_output : output) {
-    ofs << query_output << "\n";
+  if (ofs.is_open()) {
+    for (const auto &query_output : output) {
+      ofs << query_output << "\n";
+    }
+    ofs.close();
+  } else {
+    std::cerr << "Could not open result file." << std::endl;
+    ads::util::malformed_input();
   }
-  ofs.close();
 
   // Print result line
   const auto time = ads::util::time_diff(start, end);
