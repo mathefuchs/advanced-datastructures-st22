@@ -114,12 +114,12 @@ class DynamicBitVector {
     // Rotate right node's left child left
     Node *right_child = node->right;
     node->right = right_child->left;
-    if (node->right != nullptr) {
+    if (node->right) {
       node->right->parent = node;
     }
     right_child->parent = node->parent;
 
-    if (node->parent == nullptr) {
+    if (!node->parent) {
       // Right node is the new root
       root = right_child;
     } else if (node == node->parent->left) {
@@ -148,12 +148,12 @@ class DynamicBitVector {
     // Rotate left node's right child right
     Node *left_child = node->left;
     node->left = left_child->right;
-    if (node->left != nullptr) {
+    if (node->left) {
       node->left->parent = node;
     }
     left_child->parent = node->parent;
 
-    if (node->parent == nullptr) {
+    if (!node->parent) {
       // Left node is the new root
       root = left_child;
     } else if (node == node->parent->left) {
@@ -236,30 +236,50 @@ class DynamicBitVector {
   /**
    * @brief Check invariant and rebalance if necessary after deletion.
    *
-   * @param node The node
+   * @param node The node to rebalance
+   * @param deleted_bit Whether deleted a zero or one.
    */
-  inline void rebalance_after_deletion(Node *node) {
-    if (node == nullptr) {
-      return;
-    }
+  inline void rebalance_after_deletion(Node *node, LeafDeletion deleted_bit) {
     if (node == root) {
-      // Make root leaf
-      if (root->left->leaf_data) {
-        root->leaf_data = root->left->leaf_data;
+      // Delete root and move child up
+      if (root->left) {
+        if (root->left->leaf_data) {
+          // Root becomes leaf
+          root->leaf_data = root->left->leaf_data;
+          delete root->left;
+          delete root->right;
+          root->left = nullptr;
+          root->right = nullptr;
+        } else {
+          // Left child is new root
+          root->left->parent = nullptr;
+          Node *new_root = root->left;
+          delete root;
+          root = new_root;
+          set_color(root, Color::BLACK);
+        }
       } else {
-        root->leaf_data = root->right->leaf_data;
+        if (root->right->leaf_data) {
+          // Root becomes leaf
+          root->leaf_data = root->right->leaf_data;
+          delete root->left;
+          delete root->right;
+          root->left = nullptr;
+          root->right = nullptr;
+        } else {
+          // Right child is new root
+          root->right->parent = nullptr;
+          Node *new_root = root->right;
+          delete root;
+          root = new_root;
+          set_color(root, Color::BLACK);
+        }
       }
-      delete root->left;
-      delete root->right;
-      root->left = nullptr;
-      root->right = nullptr;
-      return;
-    }
-
-    if (get_color(node) == Color::RED || get_color(node->left) == Color::RED ||
-        get_color(node->right) == Color::RED) {
+    } else if (get_color(node) == Color::RED ||
+               get_color(node->left) == Color::RED ||
+               get_color(node->right) == Color::RED) {
       // Recoloring sufficient if any related nodes are red
-      Node *child = node->left != nullptr ? node->left : node->right;
+      Node *child = node->left ? node->left : node->right;
 
       if (node == node->parent->left) {
         node->parent->left = child;
@@ -289,6 +309,10 @@ class DynamicBitVector {
             set_color(sibling, Color::BLACK);
             set_color(parent, Color::RED);
             rotate_left(parent);
+            if (deleted_bit == LeafDeletion::DELETED_ONE) {
+              --parent->parent->ones_in_left_tree;
+            }
+            --parent->parent->num_bits_left_tree;
           } else {
             if (get_color(sibling->left) == Color::BLACK &&
                 get_color(sibling->right) == Color::BLACK) {
@@ -310,6 +334,10 @@ class DynamicBitVector {
               set_color(parent, Color::BLACK);
               set_color(sibling->right, Color::BLACK);
               rotate_left(parent);
+              if (deleted_bit == LeafDeletion::DELETED_ONE) {
+                --parent->parent->ones_in_left_tree;
+              }
+              --parent->parent->num_bits_left_tree;
               break;
             }
           }
@@ -335,6 +363,10 @@ class DynamicBitVector {
                 set_color(sibling->right, Color::BLACK);
                 set_color(sibling, Color::RED);
                 rotate_left(sibling);
+                if (deleted_bit == LeafDeletion::DELETED_ONE) {
+                  --parent->parent->ones_in_left_tree;
+                }
+                --parent->parent->num_bits_left_tree;
                 sibling = parent->left;
               }
               set_color(sibling, parent->color);
@@ -348,10 +380,12 @@ class DynamicBitVector {
       }
 
       // Completed rebalancing, node can be safely deleted
+      Node *leaf = node->left ? node->left : node->right;
+      leaf->parent = node->parent;
       if (node == node->parent->left) {
-        node->parent->left = nullptr;
+        node->parent->left = leaf;
       } else {
-        node->parent->right = nullptr;
+        node->parent->right = leaf;
       }
       delete node;
       set_color(root, Color::BLACK);
@@ -573,21 +607,27 @@ class DynamicBitVector {
    *
    * @param node The starting node to search for the correct position.
    * @param i The position to insert.
-   * @param src The source leaf bitvector.
+   * @param src The source leaf node.
    * @param num_ones_leaf The number of ones in the bitvector.
    * @param insert_back Whether to insert at the back (true) or front (false).
    */
-  void move_to_leaf(Node *node, SizeType i, Leaf *src, SizeType num_ones_leaf,
+  void move_to_leaf(Node *node, SizeType i, Node *src, SizeType num_ones_leaf,
                     bool insert_back) {
     if (node->leaf_data) {
       // Base case
       if (insert_back) {
-        node->leaf_data->copy_to_back(*src);
+        // Move right leaf into left subtree
+        node->leaf_data->copy_to_back(*src->leaf_data);
+        delete src->leaf_data;
+        src->parent->right = nullptr;
         delete src;
       } else {
-        src->copy_to_back(*node->leaf_data);
+        // Move left leaf into right subtree
+        src->leaf_data->copy_to_back(*node->leaf_data);
         delete node->leaf_data;
-        node->leaf_data = src;
+        node->leaf_data = src->leaf_data;
+        src->parent->left = nullptr;
+        delete src;
       }
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
@@ -595,7 +635,7 @@ class DynamicBitVector {
                    num_ones_leaf, insert_back);
     } else {
       // Index in left subtree
-      node->num_bits_left_tree += src->size();
+      node->num_bits_left_tree += src->leaf_data->size();
       node->ones_in_left_tree += num_ones_leaf;
       move_to_leaf(node->left, i, src, num_ones_leaf, insert_back);
     }
@@ -646,11 +686,11 @@ class DynamicBitVector {
                            node->num_bits_left_tree, 0, false);
         switch (stealing_attempt) {
           case LeafDeletion::UNDERFLOW:
-            // Merge leaves
-            move_to_leaf(node->left, node->num_bits_left_tree,
-                         node->right->leaf_data, ones - node->ones_in_left_tree,
-                         true);
-            rebalance_after_deletion(node);
+            // Move leaf node->right to right-most position in subtree under
+            // node->left
+            move_to_leaf(node->left, node->num_bits_left_tree, node->right,
+                         ones - node->ones_in_left_tree, true);
+            rebalance_after_deletion(node, deletion_successful);
             return deletion_successful;
           case LeafDeletion::DELETED_ZERO:
             insert_at_node(node->right, 0, false);
@@ -682,10 +722,11 @@ class DynamicBitVector {
             node->right, 0, num_bits - node->num_bits_left_tree, 0, false);
         switch (stealing_attempt) {
           case LeafDeletion::UNDERFLOW:
-            // Merge leaves
-            move_to_leaf(node->right, 0, node->left->leaf_data,
-                         node->ones_in_left_tree, false);
-            rebalance_after_deletion(node);
+            // Move leaf node->left to left-most position in subtree under
+            // node->right
+            move_to_leaf(node->right, 0, node->left, node->ones_in_left_tree,
+                         false);
+            rebalance_after_deletion(node, deletion_successful);
             return deletion_successful;
           case LeafDeletion::DELETED_ZERO:
             insert_at_node(node->left, node->num_bits_left_tree - 1, false);
@@ -884,14 +925,9 @@ class DynamicBitVector {
    * @return The space usage in bits.
    */
   inline SizeType space_used() const {
-    if (root) {
-      // Size of attributes and the complete tree
-      return (2 * sizeof(SizeType) + sizeof(Node *)) * 8ull +
-             space_used_at_node(root);
-    } else {
-      // Only size of attributes
-      return (2 * sizeof(SizeType) + sizeof(Node *)) * 8ull;
-    }
+    // Size of attributes and the complete tree
+    return (2 * sizeof(SizeType) + sizeof(Node *)) * 8ull +
+           space_used_at_node(root);
   }
 
   /**

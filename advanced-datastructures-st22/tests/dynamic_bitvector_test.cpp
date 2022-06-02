@@ -368,4 +368,139 @@ TEST(ads_test_suite, dynamic_bitvector_space_used_test) {
   ASSERT_EQ(bv.space_used(), 11712);
 }
 
+TEST(ads_test_suite, dynamic_bitvector_delete_left_test) {
+  srand(0);
+  const size_t n = 20000;
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 8, 16, 32> bv;
+  std::vector<bool> expected(n, false);
+  for (size_t i = 0; i < n; ++i) {
+    // At i == 3072 and 7168, there is rebalancing happening;
+    // make sure that there is a one to check correct counting
+    bool value = i == 3072 || i == 7168 ? true : rand() % 3 == 0;
+    bv.insert(i, value);
+    expected[i] = value;
+  }
+  ASSERT_EQ(bv.size(), n);
+  for (size_t i = 0; i < n; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+
+  for (size_t i = 0; i < n; ++i) {
+    bv.delete_element(0);
+
+    for (size_t j = 0; j < n - i - 1; ++j) {
+      ASSERT_EQ(bv[j], expected[j + i + 1]);
+    }
+  }
+  ASSERT_EQ(bv.size(), 0);
+}
+
+TEST(ads_test_suite, dynamic_bitvector_delete_right_test) {
+  srand(0);
+  const size_t n = 20000;
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 8, 16, 32> bv;
+  std::vector<bool> expected(n, false);
+  for (size_t i = 0; i < n; ++i) {
+    bool value = rand() % 3 == 0;
+    bv.insert(i, value);
+    expected[i] = value;
+  }
+  ASSERT_EQ(bv.size(), n);
+  for (size_t i = 0; i < n; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+
+  for (size_t i = 0; i < n; ++i) {
+    bv.delete_element(bv.size() - 1);
+
+    for (size_t j = 0; j < n - i - 1; ++j) {
+      ASSERT_EQ(bv[j], expected[j]);
+    }
+  }
+  ASSERT_EQ(bv.size(), 0);
+}
+
+TEST(ads_test_suite, dynamic_bitvector_insert_left_test) {
+  srand(0);
+  const size_t n = 20000;
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 8, 16, 32> bv;
+  std::vector<bool> expected(n, false);
+  for (size_t i = 0; i < n; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+  }
+  ASSERT_EQ(bv.size(), 0);
+
+  for (size_t i = 0; i < n; ++i) {
+    bv.insert(0, expected[i]);
+
+    for (size_t j = 0; j <= i; ++j) {
+      ASSERT_EQ(bv[j], expected[i - j]);
+    }
+  }
+
+  for (size_t i = 0; i < n; ++i) {
+    ASSERT_EQ(bv[i], expected[n - i - 1]);
+  }
+  ASSERT_EQ(bv.size(), n);
+}
+
+TEST(ads_test_suite, dynamic_bitvector_insert_right_test) {
+  srand(0);
+  const size_t n = 20000;
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 8, 16, 32> bv;
+  std::vector<bool> expected(n, false);
+  for (size_t i = 0; i < n; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+  }
+  ASSERT_EQ(bv.size(), 0);
+
+  for (size_t i = 0; i < n; ++i) {
+    bv.insert(bv.size(), expected[i]);
+
+    for (size_t j = 0; j <= i; ++j) {
+      ASSERT_EQ(bv[j], expected[j]);
+    }
+  }
+
+  for (size_t i = 0; i < n; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+  ASSERT_EQ(bv.size(), n);
+}
+
+TEST(ads_test_suite, dynamic_bitvector_insert_middle_test) {
+  srand(0);
+  const size_t n = 20000;
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 8, 16, 32> bv;
+  std::vector<bool> expected(n, false);
+  for (size_t i = 0; i < n; ++i) {
+    bool value = rand() % 3 == 0;
+    expected[i] = value;
+    if (i < n / 2) {
+      bv.push_back(value);
+    }
+  }
+  ASSERT_EQ(bv.size(), n / 2);
+  for (size_t i = 0; i < n / 2; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+
+  for (size_t i = 0; i < n / 2; ++i) {
+    bv.insert(5000, expected[n / 2 + i]);
+  }
+
+  for (size_t i = 0; i < 5000; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+  for (size_t i = 5000; i < 15000; ++i) {
+    ASSERT_EQ(bv[i], expected[24999 - i]);
+  }
+  for (size_t i = 15000; i < 20000; ++i) {
+    ASSERT_EQ(bv[i], expected[i - 10000]);
+  }
+  ASSERT_EQ(bv.size(), n);
+}
+
 }  // namespace ads_test
