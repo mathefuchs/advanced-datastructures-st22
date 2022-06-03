@@ -649,4 +649,22 @@ TEST(ads_test_suite, dynamic_bitvector_from_simple_and_delete_test) {
   ASSERT_EQ(bv.size(), 0);
 }
 
+TEST(ads_test_suite, dynamic_bitvector_from_small_simple_test) {
+  srand(0);
+  const size_t n = 128;
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> simple_bv(n);
+  std::vector<bool> expected(n, false);
+  for (size_t i = 0; i < n; ++i) {
+    bool value = rand() % 2 == 0;
+    expected[i] = value;
+    simple_bv.set(i, value);
+  }
+
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 1, 2, 4> bv(simple_bv);
+  ASSERT_EQ(bv.size(), n);
+  for (size_t i = 0; i < n; ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+}
+
 }  // namespace ads_test

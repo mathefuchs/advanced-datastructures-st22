@@ -829,14 +829,6 @@ class DynamicBitVector {
         rightmost_leaf->leaf_data->current_size_bits += bits_inserted;
         current_size += bits_inserted;
         total_ones += num_ones_inserted;
-        Node *current_node = rightmost_leaf;
-        while (current_node != root) {
-          if (current_node->parent->left == current_node) {
-            current_node->parent->num_bits_left_tree += bits_inserted;
-            current_node->parent->ones_in_left_tree += num_ones_inserted;
-          }
-          current_node = current_node->parent;
-        }
 
         // Split and rebalance if necessary
         Leaf *left_leaf = rightmost_leaf->leaf_data;
