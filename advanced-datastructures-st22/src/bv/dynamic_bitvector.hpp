@@ -85,7 +85,7 @@ class DynamicBitVector {
    * @param node The node.
    * @return The node's color or black if null.
    */
-  inline Color get_color(Node *node) const {
+  Color get_color(Node *node) const {
     if (!node || node->leaf_data) {
       return Color::BLACK;
     } else {
@@ -99,7 +99,7 @@ class DynamicBitVector {
    * @param node The node.
    * @param color The color to set.
    */
-  inline void set_color(Node *node, Color color) {
+  void set_color(Node *node, Color color) {
     if (node) {
       node->color = color;
     }
@@ -110,7 +110,7 @@ class DynamicBitVector {
    *
    * @param node The node to perform the left rotation on.
    */
-  inline void rotate_left(Node *node) {
+  void rotate_left(Node *node) {
     // Rotate right node's left child left
     Node *right_child = node->right;
     node->right = right_child->left;
@@ -144,7 +144,7 @@ class DynamicBitVector {
    *
    * @param node The node to perform the right rotation on.
    */
-  inline void rotate_right(Node *node) {
+  void rotate_right(Node *node) {
     // Rotate left node's right child right
     Node *left_child = node->left;
     node->left = left_child->right;
@@ -178,7 +178,7 @@ class DynamicBitVector {
    *
    * @param node The node to start rebalancing at.
    */
-  inline void rebalance_after_insertion(Node *node) {
+  void rebalance_after_insertion(Node *node) {
     // Traverse tree back to root and fix violated invariant
     Node *parent = nullptr;
     Node *grandparent = nullptr;
@@ -239,7 +239,7 @@ class DynamicBitVector {
    * @param node The node to rebalance
    * @param deleted_bit Whether deleted a zero or one.
    */
-  inline void rebalance_after_deletion(Node *node, LeafDeletion deleted_bit) {
+  void rebalance_after_deletion(Node *node, LeafDeletion deleted_bit) {
     if (node == root) {
       // Delete root and move child up
       if (root->left) {
@@ -766,7 +766,7 @@ class DynamicBitVector {
    *
    * @return The space usage in bits.
    */
-  inline SizeType space_used_at_node(Node *node) const {
+  SizeType space_used_at_node(Node *node) const {
     if (node->leaf_data) {
       // Space for leaf block and leaf data
       return NODE_SIZE + node->leaf_data->space_used();
@@ -795,6 +795,82 @@ class DynamicBitVector {
    * @brief Destroy the dynamic bitvector.
    */
   ~DynamicBitVector() { delete_recursive(root); }
+
+  /**
+   * @brief Construct a new dynamic bitvector.
+   *
+   * @param bitvector The plain bitvector to construct this vector from.
+   */
+  explicit DynamicBitVector(const Leaf &bitvector)
+      : root(new Node()), current_size(0), total_ones(0) {
+    if (bitvector.size_in_blocks() < MaxLeafSizeBlocks) {
+      // Bitvector fits in a single leaf
+      root->leaf_data = new Leaf(bitvector);
+      current_size = bitvector.size();
+      total_ones = bitvector.num_ones();
+    } else {
+      // Init root node
+      root->leaf_data = new Leaf();
+
+      // Build balanced tree
+      SizeType remaining_size = bitvector.size();
+      Node *rightmost_leaf = root;
+      for (SizeType i = 0; i < bitvector.size_in_blocks(); ++i) {
+        // Insert block
+        const BlockType block_to_insert = bitvector.blocks[i];
+        rightmost_leaf->leaf_data->blocks.push_back(block_to_insert);
+
+        // Update counters along path to root
+        const SizeType bits_inserted = remaining_size < Leaf::BLOCK_SIZE
+                                           ? remaining_size
+                                           : Leaf::BLOCK_SIZE;
+        remaining_size -= Leaf::BLOCK_SIZE;
+        const SizeType num_ones_inserted = Leaf::popcount(block_to_insert);
+        rightmost_leaf->leaf_data->current_size_bits += bits_inserted;
+        current_size += bits_inserted;
+        total_ones += num_ones_inserted;
+        Node *current_node = rightmost_leaf;
+        while (current_node != root) {
+          if (current_node->parent->left == current_node) {
+            current_node->parent->num_bits_left_tree += bits_inserted;
+            current_node->parent->ones_in_left_tree += num_ones_inserted;
+          }
+          current_node = current_node->parent;
+        }
+
+        // Split and rebalance if necessary
+        Leaf *left_leaf = rightmost_leaf->leaf_data;
+        if (left_leaf->size_in_blocks() >= MaxLeafSizeBlocks) {
+          // Split if necessary
+          auto *right_leaf = left_leaf->split();
+
+          // Leaf node becomes inner node with two children
+          rightmost_leaf->leaf_data = nullptr;
+          rightmost_leaf->color = Color::RED;
+          rightmost_leaf->num_bits_left_tree = left_leaf->size();
+          rightmost_leaf->ones_in_left_tree = left_leaf->num_ones();
+
+          // Left child
+          rightmost_leaf->left = new Node();
+          rightmost_leaf->left->color = Color::BLACK;
+          rightmost_leaf->left->parent = rightmost_leaf;
+          rightmost_leaf->left->leaf_data = left_leaf;
+
+          // Right child
+          rightmost_leaf->right = new Node();
+          rightmost_leaf->right->color = Color::BLACK;
+          rightmost_leaf->right->parent = rightmost_leaf;
+          rightmost_leaf->right->leaf_data = right_leaf;
+
+          // Rebalance if necessary
+          rebalance_after_insertion(rightmost_leaf);
+
+          // Update rightmost leaf pointer
+          rightmost_leaf = rightmost_leaf->right;
+        }
+      }
+    }
+  }
 
   /**
    * @brief Current number of bits.
@@ -920,7 +996,7 @@ class DynamicBitVector {
    *
    * @return The space usage in bits.
    */
-  inline SizeType space_used() const {
+  SizeType space_used() const {
     // Size of attributes and the complete tree
     return (2 * sizeof(SizeType) + sizeof(Node *)) * 8ull +
            space_used_at_node(root);

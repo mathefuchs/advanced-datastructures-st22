@@ -11,6 +11,13 @@ namespace ads {
 namespace bv {
 
 /**
+ * @brief Forward declaration.
+ */
+template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
+          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks>
+class DynamicBitVector;
+
+/**
  * @brief Simple Bitvector datastructure.
  *
  * @tparam BlockType The block type, e.g., uint64_t.
@@ -19,6 +26,14 @@ namespace bv {
 template <class BlockType, class SizeType = size_t>
 class SimpleBitVector {
  private:
+  /**
+   * @brief Friend class dynamic bitvector for
+   * construction out of a simple vector.
+   */
+  template <class BlockT, class SizeT, SizeT MinLeafSizeBlocks,
+            SizeT InitialLeafSizeBlocks, SizeT MaxLeafSizeBlocks>
+  friend class DynamicBitVector;
+
   SizeType current_size_bits;
   std::vector<BlockType> blocks;
 
@@ -28,7 +43,7 @@ class SimpleBitVector {
    * @param block The block.
    * @return The popcount.
    */
-  inline SizeType popcount(BlockType block) const {
+  static constexpr SizeType popcount(BlockType block) {
     if constexpr (sizeof(BlockType) == sizeof(long)) {
       return static_cast<SizeType>(__builtin_popcountl(block));
     } else if constexpr (sizeof(BlockType) == sizeof(long long)) {
@@ -81,7 +96,7 @@ class SimpleBitVector {
    * @return true if set.
    * @return false otherwise.
    */
-  inline bool operator[](SizeType i) const {
+  bool operator[](SizeType i) const {
     return (blocks[i / BLOCK_SIZE] >> (i % BLOCK_SIZE)) & 1ULL;
   }
 
@@ -91,7 +106,7 @@ class SimpleBitVector {
    * @param i The index to set.
    * @param value The value to set it to.
    */
-  inline void set(SizeType i, bool value) {
+  void set(SizeType i, bool value) {
     if (value) {
       set(i);
     } else {
@@ -104,16 +119,14 @@ class SimpleBitVector {
    *
    * @param i The index to set.
    */
-  inline void set(SizeType i) {
-    blocks[i / BLOCK_SIZE] |= (1ULL << (i % BLOCK_SIZE));
-  }
+  void set(SizeType i) { blocks[i / BLOCK_SIZE] |= (1ULL << (i % BLOCK_SIZE)); }
 
   /**
    * @brief Resets the i-th element.
    *
    * @param i The index to reset.
    */
-  inline void reset(SizeType i) {
+  void reset(SizeType i) {
     blocks[i / BLOCK_SIZE] &= ~(1ULL << (i % BLOCK_SIZE));
   }
 
@@ -122,7 +135,7 @@ class SimpleBitVector {
    *
    * @return The size in blocks.
    */
-  inline SizeType size_in_blocks() const {
+  SizeType size_in_blocks() const {
     return static_cast<SizeType>(blocks.size());
   }
 
@@ -131,14 +144,14 @@ class SimpleBitVector {
    *
    * @return The size in bits.
    */
-  inline SizeType size() const { return current_size_bits; }
+  SizeType size() const { return current_size_bits; }
 
   /**
    * @brief Flips the i-th bit.
    *
    * @param i The bit to flip.
    */
-  inline void flip(SizeType i) {
+  void flip(SizeType i) {
     blocks[i / BLOCK_SIZE] ^= (1ULL << (i % BLOCK_SIZE));
   }
 
@@ -148,7 +161,7 @@ class SimpleBitVector {
    * @param i The position to insert.
    * @param value The value of the inserted element.
    */
-  inline void insert(SizeType i, bool value) {
+  void insert(SizeType i, bool value) {
     // Update counters
     if (current_size_bits == BLOCK_SIZE * blocks.size()) {
       blocks.push_back(0);
@@ -190,7 +203,7 @@ class SimpleBitVector {
    *
    * @param i The index to delete.
    */
-  inline void delete_element(SizeType i) {
+  void delete_element(SizeType i) {
     // Update counters
     --current_size_bits;
 
@@ -234,7 +247,7 @@ class SimpleBitVector {
    * @param i The position.
    * @return Number of ones.
    */
-  inline SizeType rank_one(SizeType i) const {
+  SizeType rank_one(SizeType i) const {
     const SizeType block_num = i / BLOCK_SIZE;
     SizeType rank = popcount(blocks[block_num] & ~(~0ull << (i % BLOCK_SIZE)));
     for (SizeType block = 0; block < block_num; ++block) {
@@ -249,7 +262,7 @@ class SimpleBitVector {
    * @param i The position.
    * @return Number of zeros.
    */
-  inline SizeType rank_zero(SizeType i) const { return i - rank_one(i); }
+  SizeType rank_zero(SizeType i) const { return i - rank_one(i); }
 
   /**
    * @brief Get the position of the i-th one.
@@ -257,7 +270,7 @@ class SimpleBitVector {
    * @param i The i-th one (one-based index).
    * @return The position.
    */
-  inline SizeType select_one(SizeType i) const {
+  SizeType select_one(SizeType i) const {
     // Determine which block to scan
     SizeType select = i;
     SizeType block_idx = 0;
@@ -292,7 +305,7 @@ class SimpleBitVector {
    * @param i The i-th zero (one-based index).
    * @return The position.
    */
-  inline SizeType select_zero(SizeType i) const {
+  SizeType select_zero(SizeType i) const {
     // Determine which block to scan
     SizeType select = i;
     SizeType block_idx = 0;
@@ -458,7 +471,7 @@ class SimpleBitVector {
    *
    * @return The space usage in bits.
    */
-  inline SizeType space_used() const {
+  SizeType space_used() const {
     // Space for all blocks plus the current size variable
     return (size_in_blocks() * sizeof(BlockType) + sizeof(SizeType)) * 8ull;
   }

@@ -46,17 +46,14 @@ static inline void run_bv(const std::string &input_file,
   // Prepare everything
   const auto problem_instance =
       ads::bv::query::parse_bv_input<BlockType, SizeType>(input_file);
-  ads::bv::DynamicBitVector<BlockType, SizeType, MinLeafSizeBlocks,
-                            InitialLeafSizeBlocks, MaxLeafSizeBlocks>
-      bv;
-  for (SizeType i = 0; i < problem_instance.bv.size(); ++i) {
-    bv.push_back(problem_instance.bv[i]);
-  }
-
-  // Run all queries
   std::vector<SizeType> output;
   output.reserve(problem_instance.queries.size());
+
+  // Run all queries
   const auto start = std::chrono::high_resolution_clock::now();
+  ads::bv::DynamicBitVector<BlockType, SizeType, MinLeafSizeBlocks,
+                            InitialLeafSizeBlocks, MaxLeafSizeBlocks>
+      bv(problem_instance.bv);
   for (const auto &query : problem_instance.queries) {
     switch (query.type) {
       case ads::bv::query::BVQueryType::INSERT:
