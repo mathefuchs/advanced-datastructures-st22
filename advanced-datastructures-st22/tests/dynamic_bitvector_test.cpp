@@ -9,6 +9,8 @@
 #include <set>
 #include <vector>
 
+#include "bv/simple_bitvector.hpp"
+
 namespace ads_test {
 
 TEST(ads_test_suite, dynamic_bitvector_insert_test) {
@@ -501,6 +503,105 @@ TEST(ads_test_suite, dynamic_bitvector_insert_middle_test) {
     ASSERT_EQ(bv[i], expected[i - 10000]);
   }
   ASSERT_EQ(bv.size(), n);
+}
+
+TEST(ads_test_suite, dynamic_bitvector_mixed_insert_delete_test) {
+  srand(0);
+  ads::bv::SimpleBitVector<uint64_t, uint64_t> simple_bv;
+  ads::bv::DynamicBitVector<uint64_t, uint64_t, 1, 2, 4> bv;
+  std::vector<bool> expected;
+
+  for (size_t i = 0; i < 5000; ++i) {
+    // Insert 1
+    bool value1 = rand() % 3 == 0;
+    uint64_t insert_pos1 = rand() % (bv.size() + 1);
+    simple_bv.insert(insert_pos1, value1);
+    bv.insert(insert_pos1, value1);
+    expected.insert(expected.begin() + insert_pos1, value1);
+    // Insert 2
+    bool value2 = rand() % 2 == 0;
+    uint64_t insert_pos2 = rand() % (bv.size() + 1);
+    simple_bv.insert(insert_pos2, value2);
+    bv.insert(insert_pos2, value2);
+    expected.insert(expected.begin() + insert_pos2, value2);
+    // Insert 3
+    bool value3 = rand() % 4 == 0;
+    uint64_t insert_pos3 = rand() % (bv.size() + 1);
+    simple_bv.insert(insert_pos3, value3);
+    bv.insert(insert_pos3, value3);
+    expected.insert(expected.begin() + insert_pos3, value3);
+    // Delete
+    uint64_t delete_pos = rand() % bv.size();
+    simple_bv.delete_element(delete_pos);
+    bv.delete_element(delete_pos);
+    expected.erase(expected.begin() + delete_pos);
+    // Check
+    ASSERT_EQ(simple_bv.size(), bv.size());
+    ASSERT_EQ(expected.size(), bv.size());
+    for (size_t i = 0; i < bv.size(); ++i) {
+      ASSERT_EQ(bv[i], expected[i]);
+      ASSERT_EQ(bv[i], simple_bv[i]);
+    }
+  }
+
+  ASSERT_EQ(simple_bv.size(), 10000);
+  ASSERT_EQ(bv.size(), 10000);
+  ASSERT_EQ(expected.size(), 10000);
+  for (size_t i = 0; i < bv.size(); ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+    ASSERT_EQ(bv[i], simple_bv[i]);
+  }
+
+  for (size_t i = 0; i < 5000; ++i) {
+    // Insert
+    bool value = rand() % 5 == 0;
+    uint64_t insert_pos = rand() % (bv.size() + 1);
+    simple_bv.insert(insert_pos, value);
+    bv.insert(insert_pos, value);
+    expected.insert(expected.begin() + insert_pos, value);
+    // Check
+    ASSERT_EQ(simple_bv.size(), bv.size());
+    for (size_t i = 0; i < bv.size(); ++i) {
+      ASSERT_EQ(bv[i], expected[i]);
+      ASSERT_EQ(bv[i], simple_bv[i]);
+    }
+    // Delete 1
+    uint64_t delete_pos1 = rand() % bv.size();
+    simple_bv.delete_element(delete_pos1);
+    bv.delete_element(delete_pos1);
+    expected.erase(expected.begin() + delete_pos1);
+    // Check
+    ASSERT_EQ(simple_bv.size(), bv.size());
+    for (size_t i = 0; i < bv.size(); ++i) {
+      ASSERT_EQ(bv[i], expected[i]);
+      ASSERT_EQ(bv[i], simple_bv[i]);
+    }
+    // Delete 2
+    uint64_t delete_pos2 = rand() % bv.size();
+    simple_bv.delete_element(delete_pos2);
+    bv.delete_element(delete_pos2);
+    expected.erase(expected.begin() + delete_pos2);
+    // Check
+    ASSERT_EQ(simple_bv.size(), bv.size());
+    for (size_t j = 0; j < bv.size(); ++j) {
+      ASSERT_EQ(bv[j], expected[j]);
+      ASSERT_EQ(bv[j], simple_bv[j]);
+    }
+    // Delete 3
+    uint64_t delete_pos3 = rand() % bv.size();
+    simple_bv.delete_element(delete_pos3);
+    bv.delete_element(delete_pos3);
+    expected.erase(expected.begin() + delete_pos3);
+    // Check
+    ASSERT_EQ(simple_bv.size(), bv.size());
+    for (size_t j = 0; j < bv.size(); ++j) {
+      ASSERT_EQ(bv[j], expected[j]);
+      ASSERT_EQ(bv[j], simple_bv[j]);
+    }
+  }
+
+  ASSERT_EQ(simple_bv.size(), 0);
+  ASSERT_EQ(bv.size(), 0);
 }
 
 }  // namespace ads_test

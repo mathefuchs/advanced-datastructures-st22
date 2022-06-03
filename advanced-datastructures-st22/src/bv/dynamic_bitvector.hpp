@@ -86,7 +86,7 @@ class DynamicBitVector {
    * @return The node's color or black if null.
    */
   inline Color get_color(Node *node) const {
-    if (node == nullptr) {
+    if (!node || node->leaf_data) {
       return Color::BLACK;
     } else {
       return node->color;
@@ -100,7 +100,7 @@ class DynamicBitVector {
    * @param color The color to set.
    */
   inline void set_color(Node *node, Color color) {
-    if (node != nullptr) {
+    if (node) {
       node->color = color;
     }
   }
@@ -176,7 +176,7 @@ class DynamicBitVector {
   /**
    * @brief Check invariant and rebalance if necessary after insertion.
    *
-   * @param node The node
+   * @param node The node to start rebalancing at.
    */
   inline void rebalance_after_insertion(Node *node) {
     // Traverse tree back to root and fix violated invariant
@@ -363,10 +363,6 @@ class DynamicBitVector {
                 set_color(sibling->right, Color::BLACK);
                 set_color(sibling, Color::RED);
                 rotate_left(sibling);
-                if (deleted_bit == LeafDeletion::DELETED_ONE) {
-                  --parent->parent->ones_in_left_tree;
-                }
-                --parent->parent->num_bits_left_tree;
                 sibling = parent->left;
               }
               set_color(sibling, parent->color);
