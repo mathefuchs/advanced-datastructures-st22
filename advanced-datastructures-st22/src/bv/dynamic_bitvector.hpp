@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "bv/simple_bitvector.hpp"
+#include "meta/empty.hpp"
 
 namespace ads {
 namespace bv {
@@ -21,9 +22,15 @@ namespace bv {
  * @tparam MinLeafSizeBlocks The minimum leaf size in blocks, e.g., w / 2.
  * @tparam InitialLeafSizeBlocks The initial leaf size in blocks, e.g., w.
  * @tparam MaxLeafSizeBlocks The maximum leaf size in blocks, e.g., 2 * w.
+ * @tparam AdditionalNodeData Additional data to store in tree nodes.
+ * @tparam AdditionalLeafData Additional data to store in leafs.
+ * @tparam ExcessQuerySupport Whether to support excess queries.
  */
 template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
-          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks>
+          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks,
+          class AdditionalNodeData = meta::Empty,
+          class AdditionalLeafData = meta::Empty,
+          bool ExcessQuerySupport = false>
 class DynamicBitVector {
  private:
   static_assert(2 * MinLeafSizeBlocks <= InitialLeafSizeBlocks,
@@ -54,9 +61,17 @@ class DynamicBitVector {
   enum class BitChangeResult { ONE_MORE_ONE, ONE_LESS_ONE, NO_CHANGE };
 
   /**
+   * @brief Data stored per leaf.
+   */
+  struct LeafData : public AdditionalLeafData {
+    // The underlying bitvector
+    Leaf bv = {};
+  };
+
+  /**
    * @brief Node helper class. Represents a leaf if leaf_data not null.
    */
-  struct Node {
+  struct Node : public AdditionalNodeData {
     // Pointer
     Node *parent = nullptr;
     Node *left = nullptr;
@@ -70,7 +85,7 @@ class DynamicBitVector {
     SizeType ones_in_left_tree = 0;
 
     // If not null, node represents leaf
-    Leaf *leaf_data = nullptr;
+    LeafData *leaf_data = nullptr;
   };
 
   static constexpr size_t NODE_SIZE = sizeof(Node) * 8ull;
@@ -414,7 +429,7 @@ class DynamicBitVector {
   bool access_bit(Node *node, SizeType i) const {
     if (node->leaf_data) {
       // Base case: If in leaf, access bit
-      return (*node->leaf_data)[i];
+      return node->leaf_data->bv[i];
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
       return access_bit(node->right, i - node->num_bits_left_tree);
@@ -434,8 +449,8 @@ class DynamicBitVector {
   BitChangeResult set_bit(Node *node, SizeType i, bool value) {
     if (node->leaf_data) {
       // Base case: If in leaf, access bit
-      const bool prev_value = (*node->leaf_data)[i];
-      node->leaf_data->set(i, value);
+      const bool prev_value = node->leaf_data->bv[i];
+      node->leaf_data->bv.set(i, value);
       if (prev_value && !value) {
         return BitChangeResult::ONE_LESS_ONE;
       } else if (!prev_value && value) {
@@ -474,8 +489,8 @@ class DynamicBitVector {
   bool flip_bit(Node *node, SizeType i) {
     if (node->leaf_data) {
       // Base case: If in leaf, flip bit
-      node->leaf_data->flip(i);
-      return (*node->leaf_data)[i];
+      node->leaf_data->bv.flip(i);
+      return node->leaf_data->bv[i];
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
       return flip_bit(node->right, i - node->num_bits_left_tree);
@@ -504,8 +519,8 @@ class DynamicBitVector {
                         SizeType acc) const {
     if (node->leaf_data) {
       // Base case: If in leaf, return rank in leaf
-      return acc + (rank_one ? node->leaf_data->rank_one(i)
-                             : node->leaf_data->rank_zero(i));
+      return acc + (rank_one ? node->leaf_data->bv.rank_one(i)
+                             : node->leaf_data->bv.rank_zero(i));
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
       return rank_at_node(node->right, rank_one, i - node->num_bits_left_tree,
@@ -531,8 +546,8 @@ class DynamicBitVector {
                           SizeType acc) const {
     if (node->leaf_data) {
       // Base case: If in leaf, return rank in leaf
-      return acc + (select_one ? node->leaf_data->select_one(i)
-                               : node->leaf_data->select_zero(i));
+      return acc + (select_one ? node->leaf_data->bv.select_one(i)
+                               : node->leaf_data->bv.select_zero(i));
     } else {
       const SizeType relevant_bits_in_left_tree =
           (select_one ? node->ones_in_left_tree
@@ -560,17 +575,17 @@ class DynamicBitVector {
     if (node->leaf_data) {
       // Base case: If in leaf, insert bit
       auto *left_leaf = node->leaf_data;
-      left_leaf->insert(i, value);
+      left_leaf->bv.insert(i, value);
 
-      if (left_leaf->size_in_blocks() >= MaxLeafSizeBlocks) {
+      if (left_leaf->bv.size_in_blocks() >= MaxLeafSizeBlocks) {
         // Split if necessary
-        auto *right_leaf = left_leaf->split();
+        auto *right_leaf = new LeafData{{}, left_leaf->bv.split()};
 
         // Leaf node becomes inner node with two children
         node->leaf_data = nullptr;
         node->color = Color::RED;
-        node->num_bits_left_tree = left_leaf->size();
-        node->ones_in_left_tree = left_leaf->num_ones();
+        node->num_bits_left_tree = left_leaf->bv.size();
+        node->ones_in_left_tree = left_leaf->bv.num_ones();
 
         // Left child
         node->left = new Node();
@@ -613,13 +628,13 @@ class DynamicBitVector {
       // Base case
       if (insert_back) {
         // Move right leaf into left subtree
-        node->leaf_data->copy_to_back(*src->leaf_data);
+        node->leaf_data->bv.copy_to_back(src->leaf_data->bv);
         delete src->leaf_data;
         src->parent->right = nullptr;
         delete src;
       } else {
         // Move left leaf into right subtree
-        src->leaf_data->copy_to_back(*node->leaf_data);
+        src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
         delete node->leaf_data;
         node->leaf_data = src->leaf_data;
         src->parent->left = nullptr;
@@ -631,7 +646,7 @@ class DynamicBitVector {
                    num_ones_leaf, insert_back);
     } else {
       // Index in left subtree
-      node->num_bits_left_tree += src->leaf_data->size();
+      node->num_bits_left_tree += src->leaf_data->bv.size();
       node->ones_in_left_tree += num_ones_leaf;
       move_to_leaf(node->left, i, src, num_ones_leaf, insert_back);
     }
@@ -652,13 +667,13 @@ class DynamicBitVector {
     if (node->leaf_data) {
       // Base case: If in leaf, delete bit (if not an underflow)
       if (!allow_underflow && node != root &&
-          node->leaf_data->size_in_blocks() <= MinLeafSizeBlocks) {
+          node->leaf_data->bv.size_in_blocks() <= MinLeafSizeBlocks) {
         // Underflow, do not delete and delegate to parent to merge nodes
         return LeafDeletion::UNDERFLOW;
       } else {
         // No underflow
-        const bool deleted_one = (*node->leaf_data)[i];
-        node->leaf_data->delete_element(i);
+        const bool deleted_one = node->leaf_data->bv[i];
+        node->leaf_data->bv.delete_element(i);
         return deleted_one ? LeafDeletion::DELETED_ONE
                            : LeafDeletion::DELETED_ZERO;
       }
@@ -749,8 +764,8 @@ class DynamicBitVector {
                                   std::ostringstream &tree_structure) {
     if (node) {
       if (node->leaf_data) {
-        tree_structure << "(" << node->leaf_data->size() << " "
-                       << node->leaf_data->num_ones() << ")";
+        tree_structure << "(" << node->leaf_data->bv.size() << " "
+                       << node->leaf_data->bv.num_ones() << ")";
       } else {
         tree_structure << "(" << node->num_bits_left_tree << " "
                        << node->ones_in_left_tree << " ";
@@ -769,7 +784,7 @@ class DynamicBitVector {
   SizeType space_used_at_node(Node *node) const {
     if (node->leaf_data) {
       // Space for leaf block and leaf data
-      return NODE_SIZE + node->leaf_data->space_used();
+      return NODE_SIZE + node->leaf_data->bv.space_used();
     } else {
       // Space for subtrees and node
       const SizeType left = node->left ? space_used_at_node(node->left) : 0ull;
@@ -784,7 +799,7 @@ class DynamicBitVector {
    * @brief Construct a new empty dynamic bitvector.
    */
   DynamicBitVector() : root(new Node()), current_size(0), total_ones(0) {
-    root->leaf_data = new Leaf(0);
+    root->leaf_data = new LeafData();
   }
 
   DynamicBitVector(const DynamicBitVector &) = delete;
@@ -805,12 +820,12 @@ class DynamicBitVector {
       : root(new Node()), current_size(0), total_ones(0) {
     if (bitvector.size_in_blocks() < MaxLeafSizeBlocks) {
       // Bitvector fits in a single leaf
-      root->leaf_data = new Leaf(bitvector);
+      root->leaf_data = new LeafData{{}, bitvector};
       current_size = bitvector.size();
       total_ones = bitvector.num_ones();
     } else {
       // Init root node
-      root->leaf_data = new Leaf();
+      root->leaf_data = new LeafData();
 
       // Build balanced tree
       SizeType remaining_size = bitvector.size();
@@ -818,7 +833,7 @@ class DynamicBitVector {
       for (SizeType i = 0; i < bitvector.size_in_blocks(); ++i) {
         // Insert block
         const BlockType block_to_insert = bitvector.blocks[i];
-        rightmost_leaf->leaf_data->blocks.push_back(block_to_insert);
+        rightmost_leaf->leaf_data->bv.blocks.push_back(block_to_insert);
 
         // Update counters along path to root
         const SizeType bits_inserted = remaining_size < Leaf::BLOCK_SIZE
@@ -826,21 +841,21 @@ class DynamicBitVector {
                                            : Leaf::BLOCK_SIZE;
         remaining_size -= Leaf::BLOCK_SIZE;
         const SizeType num_ones_inserted = Leaf::popcount(block_to_insert);
-        rightmost_leaf->leaf_data->current_size_bits += bits_inserted;
+        rightmost_leaf->leaf_data->bv.current_size_bits += bits_inserted;
         current_size += bits_inserted;
         total_ones += num_ones_inserted;
 
         // Split and rebalance if necessary
-        Leaf *left_leaf = rightmost_leaf->leaf_data;
-        if (left_leaf->size_in_blocks() >= MaxLeafSizeBlocks) {
+        auto *left_leaf = rightmost_leaf->leaf_data;
+        if (left_leaf->bv.size_in_blocks() >= MaxLeafSizeBlocks) {
           // Split if necessary
-          auto *right_leaf = left_leaf->split();
+          auto *right_leaf = new LeafData{{}, left_leaf->bv.split()};
 
           // Leaf node becomes inner node with two children
           rightmost_leaf->leaf_data = nullptr;
           rightmost_leaf->color = Color::RED;
-          rightmost_leaf->num_bits_left_tree = left_leaf->size();
-          rightmost_leaf->ones_in_left_tree = left_leaf->num_ones();
+          rightmost_leaf->num_bits_left_tree = left_leaf->bv.size();
+          rightmost_leaf->ones_in_left_tree = left_leaf->bv.num_ones();
 
           // Left child
           rightmost_leaf->left = new Node();

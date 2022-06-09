@@ -14,7 +14,9 @@ namespace bv {
  * @brief Forward declaration.
  */
 template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
-          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks>
+          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks,
+          class AdditionalNodeData, class AdditionalLeafData,
+          bool ExcessQuerySupport>
 class DynamicBitVector;
 
 /**
@@ -31,7 +33,9 @@ class SimpleBitVector {
    * construction out of a simple vector.
    */
   template <class BlockT, class SizeT, SizeT MinLeafSizeBlocks,
-            SizeT InitialLeafSizeBlocks, SizeT MaxLeafSizeBlocks>
+            SizeT InitialLeafSizeBlocks, SizeT MaxLeafSizeBlocks,
+            class AdditionalNodeData, class AdditionalLeafData,
+            bool ExcessQuerySupport>
   friend class DynamicBitVector;
 
   SizeType current_size_bits;
@@ -65,7 +69,18 @@ class SimpleBitVector {
 
  public:
   static constexpr SizeType BLOCK_SIZE =
-      static_cast<SizeType>(8ul * sizeof(BlockType));
+      static_cast<SizeType>(8ull * sizeof(BlockType));
+
+  /**
+   * @brief Accesses a bit at the given position.
+   *
+   * @param block The block.
+   * @param i The position.
+   * @return true if bit is set.
+   */
+  static constexpr bool access_bit(BlockType block, SizeType i) {
+    return (block >> i) & 1ull;
+  }
 
   /**
    * @brief Constructs a new bit vector.
@@ -97,7 +112,7 @@ class SimpleBitVector {
    * @return false otherwise.
    */
   bool operator[](SizeType i) const {
-    return (blocks[i / BLOCK_SIZE] >> (i % BLOCK_SIZE)) & 1ULL;
+    return (blocks[i / BLOCK_SIZE] >> (i % BLOCK_SIZE)) & 1ull;
   }
 
   /**
@@ -119,7 +134,7 @@ class SimpleBitVector {
    *
    * @param i The index to set.
    */
-  void set(SizeType i) { blocks[i / BLOCK_SIZE] |= (1ULL << (i % BLOCK_SIZE)); }
+  void set(SizeType i) { blocks[i / BLOCK_SIZE] |= (1ull << (i % BLOCK_SIZE)); }
 
   /**
    * @brief Resets the i-th element.
@@ -127,7 +142,7 @@ class SimpleBitVector {
    * @param i The index to reset.
    */
   void reset(SizeType i) {
-    blocks[i / BLOCK_SIZE] &= ~(1ULL << (i % BLOCK_SIZE));
+    blocks[i / BLOCK_SIZE] &= ~(1ull << (i % BLOCK_SIZE));
   }
 
   /**
@@ -152,7 +167,7 @@ class SimpleBitVector {
    * @param i The bit to flip.
    */
   void flip(SizeType i) {
-    blocks[i / BLOCK_SIZE] ^= (1ULL << (i % BLOCK_SIZE));
+    blocks[i / BLOCK_SIZE] ^= (1ull << (i % BLOCK_SIZE));
   }
 
   /**
@@ -369,17 +384,17 @@ class SimpleBitVector {
    *
    * @return The second half.
    */
-  SimpleBitVector<BlockType, SizeType>* split() {
+  SimpleBitVector<BlockType, SizeType> split() {
     // Init new bitvector with #blocks / 2 new blocks
     // (plus one to avoid immediate allocation on insert)
     const SizeType moved_blocks = size_in_blocks() / 2;
-    auto split_out_bv = new SimpleBitVector<BlockType, SizeType>(
+    SimpleBitVector<BlockType, SizeType> split_out_bv(
         current_size_bits - moved_blocks * BLOCK_SIZE);
 
     // Copy second half to new destination
     const SizeType previous_num_blocks = size_in_blocks();
     for (SizeType i = moved_blocks; i < previous_num_blocks; ++i) {
-      split_out_bv->blocks[i - moved_blocks] = blocks[i];
+      split_out_bv.blocks[i - moved_blocks] = blocks[i];
     }
     for (SizeType i = moved_blocks; i < previous_num_blocks; ++i) {
       blocks.pop_back();

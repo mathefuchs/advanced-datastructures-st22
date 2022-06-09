@@ -4,10 +4,12 @@
     "datastructure",
     "datastructures",
     "datei",
+    "deletenode",
     "eingabe",
     "gcov",
     "GTEST",
     "gtests",
+    "insertchild",
     "lcov",
     "popcount",
     "popcountll",
@@ -106,5 +108,9 @@
     "forward_list": "cpp",
     "list": "cpp",
     "unordered_set": "cpp"
-  }
+  },
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}/advanced-datastructures-st22/src/**"
+  ],
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }

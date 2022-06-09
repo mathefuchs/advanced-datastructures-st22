@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "bp/dynamic_bp_tree.hpp"
 #include "bv/dynamic_bitvector.hpp"
 #include "bv/query.hpp"
 #include "bv/simple_bitvector.hpp"

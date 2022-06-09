@@ -494,22 +494,21 @@ TEST(ads_test_suite, simple_bitvector_split_test) {
   ASSERT_EQ(bv.size(), 1000);
   ASSERT_EQ(bv.size_in_blocks(), 63);
 
-  auto *right_half_bv = bv.split();
-  EXPECT_EQ(bv.size_in_blocks(), 31);
-  EXPECT_EQ(bv.size(), 31 * 16);
-  EXPECT_EQ(right_half_bv->size_in_blocks(), 32);
-  EXPECT_EQ(right_half_bv->size(), 1000 - 31 * 16);
-  EXPECT_TRUE(bv[0]);
-  EXPECT_TRUE(bv[1]);
-  EXPECT_TRUE(bv[50]);
-  EXPECT_TRUE(bv[63]);
-  EXPECT_TRUE(bv[64]);
-  EXPECT_TRUE(bv[65]);
-  EXPECT_TRUE(bv[100]);
-  EXPECT_TRUE((*right_half_bv)[104]);
-  EXPECT_TRUE((*right_half_bv)[204]);
-  EXPECT_TRUE((*right_half_bv)[304]);
-  delete right_half_bv;
+  auto right_half_bv = bv.split();
+  ASSERT_EQ(bv.size_in_blocks(), 31);
+  ASSERT_EQ(bv.size(), 31 * 16);
+  ASSERT_EQ(right_half_bv.size_in_blocks(), 32);
+  ASSERT_EQ(right_half_bv.size(), 1000 - 31 * 16);
+  ASSERT_TRUE(bv[0]);
+  ASSERT_TRUE(bv[1]);
+  ASSERT_TRUE(bv[50]);
+  ASSERT_TRUE(bv[63]);
+  ASSERT_TRUE(bv[64]);
+  ASSERT_TRUE(bv[65]);
+  ASSERT_TRUE(bv[100]);
+  ASSERT_TRUE(right_half_bv[104]);
+  ASSERT_TRUE(right_half_bv[204]);
+  ASSERT_TRUE(right_half_bv[304]);
 }
 
 TEST(ads_test_suite, simple_bitvector_split_block_size_test) {
@@ -524,18 +523,17 @@ TEST(ads_test_suite, simple_bitvector_split_block_size_test) {
   ASSERT_EQ(bv.size(), 1024);
   ASSERT_EQ(bv.size_in_blocks(), 16);
 
-  auto *second_half = bv.split();
+  auto second_half = bv.split();
   ASSERT_EQ(bv.size(), 512);
   ASSERT_EQ(bv.size_in_blocks(), 8);
-  ASSERT_EQ(second_half->size(), 512);
-  ASSERT_EQ(second_half->size_in_blocks(), 8);
+  ASSERT_EQ(second_half.size(), 512);
+  ASSERT_EQ(second_half.size_in_blocks(), 8);
   for (size_t i = 0; i < 512; ++i) {
-    EXPECT_EQ(bv[i], expected[i]);
+    ASSERT_EQ(bv[i], expected[i]);
   }
   for (size_t i = 0; i < 512; ++i) {
-    EXPECT_EQ((*second_half)[i], expected[i + 512]);
+    ASSERT_EQ(second_half[i], expected[i + 512]);
   }
-  delete second_half;
 }
 
 TEST(ads_test_suite, simple_bitvector_num_ones_test) {
