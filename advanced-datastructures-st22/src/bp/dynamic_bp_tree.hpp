@@ -211,6 +211,17 @@ template <class BlockType, class SizeType, class SignedIntType,
           SizeType MaxLeafSizeBlocks, SizeType BlocksPerChunk>
 class DynamicBPTree {
  private:
+  static_assert(2 * MinLeafSizeBlocks <= InitialLeafSizeBlocks,
+                "Leaf sizes invalid.");
+  static_assert(InitialLeafSizeBlocks <= 2 * MaxLeafSizeBlocks,
+                "Leaf sizes invalid.");
+  static_assert(MinLeafSizeBlocks % BlocksPerChunk == 0,
+                "Blocks have to align with chunks.");
+  static_assert(InitialLeafSizeBlocks % BlocksPerChunk == 0,
+                "Blocks have to align with chunks.");
+  static_assert(MaxLeafSizeBlocks % BlocksPerChunk == 0,
+                "Blocks have to align with chunks.");
+
   static constexpr bool LEFT =
       MinExcessNodeData<BlockType, SizeType, SignedIntType,
                         BlocksPerChunk>::LEFT;

@@ -101,7 +101,8 @@ class SimpleBitVector {
    * @param i The bit position.
    */
   void update_excess_chunk(SizeType i) {
-    const SizeType chunk_idx = i / (BLOCK_SIZE * data.BLOCKS_PER_CHUNK);
+    const SizeType chunk_idx =
+        i / (BLOCK_SIZE * AdditionalBlockData::BLOCKS_PER_CHUNK);
     data.chunk_array[chunk_idx] =
         AdditionalBlockData::MinExcessData::compute_block_excess(
             data.blocks, chunk_idx, size());
@@ -260,14 +261,15 @@ class SimpleBitVector {
   void insert(SizeType i, bool value) {
     // Update counters
     if (current_size_bits == BLOCK_SIZE * size_in_blocks()) {
-      data.blocks.push_back(0);
-
       // Add new excess chunk if necessary
       if constexpr (ExcessQuerySupport) {
-        if (data.chunk_array.size() * data.BLOCKS_PER_CHUNK == size_in_blocks()) {
+        if (data.chunk_array.size() * data.BLOCKS_PER_CHUNK ==
+            size_in_blocks()) {
           data.chunk_array.emplace_back();
         }
       }
+
+      data.blocks.push_back(0);
     }
 
     if (current_size_bits++ == i) {
@@ -296,10 +298,7 @@ class SimpleBitVector {
         const bool new_last_block_value =
             (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
         data.blocks[block] = (data.blocks[block] << 1) & ~1ull;
-
-        // shifted in = last_block_value, shifted out = new_last_block_value
-
-        set(block * BLOCK_SIZE, last_block_value);
+        set(block * BLOCK_SIZE, last_block_value);  // TODO
         last_block_value = new_last_block_value;
       }
     }
@@ -331,7 +330,7 @@ class SimpleBitVector {
       // Shift all other blocks after it
       for (SizeType block = block_num + 1; block < size_in_blocks(); ++block) {
         // Move first bit of block to block before
-        set(last_block_pos, (*this)[block * BLOCK_SIZE]);
+        set(last_block_pos, (*this)[block * BLOCK_SIZE]);  // TODO
         last_block_pos += BLOCK_SIZE;
 
         // Shift complete block
@@ -346,6 +345,15 @@ class SimpleBitVector {
     if (!data.blocks.empty() &&
         current_size_bits == BLOCK_SIZE * (data.blocks.size() - 1)) {
       data.blocks.pop_back();
+
+      // Remove last excess chunk if necessary
+      if constexpr (ExcessQuerySupport) {
+        if ((data.chunk_array.size() - 1) *
+                AdditionalBlockData::BLOCKS_PER_CHUNK ==
+            size_in_blocks()) {
+          data.chunk_array.pop_back();
+        }
+      }
     }
   }
 
@@ -475,15 +483,19 @@ class SimpleBitVector {
 
   /**
    * @brief Splits the bitvector in half. This instance is the first half.
+   * Assumes that the number of blocks moved is a multiple of the excess chunk
+   * size.
    *
    * @return The second half.
    */
-  SimpleBitVector<BlockType, SizeType> split() {
+  SimpleBitVector<BlockType, SizeType, AdditionalBlockData, ExcessQuerySupport>
+  split() {
     // Init new bitvector with #blocks / 2 new blocks
     // (plus one to avoid immediate allocation on insert)
     const SizeType moved_blocks = size_in_blocks() / 2;
-    SimpleBitVector<BlockType, SizeType> split_out_bv(
-        current_size_bits - moved_blocks * BLOCK_SIZE);
+    SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
+                    ExcessQuerySupport>
+        split_out_bv(current_size_bits - moved_blocks * BLOCK_SIZE);
 
     // Copy second half to new destination
     const SizeType previous_num_blocks = size_in_blocks();
@@ -496,6 +508,25 @@ class SimpleBitVector {
 
     // Update size
     current_size_bits = moved_blocks * BLOCK_SIZE;
+
+    // Copy excess chunks
+    if constexpr (ExcessQuerySupport) {
+#ifndef NDEBUG
+      if (moved_blocks % AdditionalBlockData::BLOCKS_PER_CHUNK != 0) {
+        throw std::invalid_argument("Invalid block size to split.");
+      }
+#endif
+
+      const SizeType moved_chunks =
+          moved_blocks / AdditionalBlockData::BLOCKS_PER_CHUNK;
+      const SizeType previous_num_chunks = data.chunk_array.size();
+      for (SizeType i = moved_chunks; i < previous_num_chunks; ++i) {
+        split_out_bv.data.chunk_array[i - moved_chunks] = data.chunk_array[i];
+      }
+      for (SizeType i = moved_chunks; i < previous_num_chunks; ++i) {
+        data.chunk_array.pop_back();
+      }
+    }
 
     return split_out_bv;
   }
@@ -530,7 +561,9 @@ class SimpleBitVector {
    *
    * @param other The other bitvector.
    */
-  void copy_to_back(const SimpleBitVector<BlockType, SizeType>& other) {
+  void copy_to_back(
+      const SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
+                            ExcessQuerySupport>& other) {
     // Check that other vector is not empty
     if (other.size_in_blocks() == 0) {
       return;
@@ -547,6 +580,12 @@ class SimpleBitVector {
     // Copy all blocks
     const SizeType insert_pos = current_size_bits % BLOCK_SIZE;
     if (insert_pos != 0) {
+#ifndef NDEBUG
+      if constexpr (ExcessQuerySupport) {
+        throw std::invalid_argument("Non-aligned copy-back not supported.");
+      }
+#endif
+
       // Insert position not aligned with block size
       BlockType last_block = data.blocks[old_num_blocks - 1];
       BlockType next_block = other.data.blocks[0];
@@ -565,9 +604,19 @@ class SimpleBitVector {
         ++next_block_to_copy;
       }
     } else {
-      // Insert position aligned with block, makes things easier
+      // Insert position aligned with block makes things easier
       for (SizeType i = old_num_blocks; i < size_in_blocks(); ++i) {
         data.blocks[i] = other.data.blocks[i - old_num_blocks];
+      }
+
+      if constexpr (ExcessQuerySupport) {
+        const SizeType required_chunks =
+            (required_blocks - 1) / AdditionalBlockData::BLOCKS_PER_CHUNK + 1;
+        const SizeType old_num_chunks = data.chunk_array.size();
+        for (SizeType i = old_num_chunks; i < required_chunks; ++i) {
+          data.chunk_array.push_back(
+              other.data.chunk_array[i - old_num_chunks]);
+        }
       }
     }
 

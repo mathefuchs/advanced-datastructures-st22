@@ -7,7 +7,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/build/advanced-datastructures-st22/tests/ads_test",
       // "args": [
-      //   "--gtest_filter=*dynamic_bitvector_mixed_insert_delete_test"
+      //   "--gtest_filter=*excess*"
       // ],
       "linux": {
         "MIMode": "gdb",

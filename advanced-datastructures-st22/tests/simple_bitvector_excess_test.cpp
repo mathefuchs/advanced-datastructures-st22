@@ -142,4 +142,261 @@ TEST(ads_test_suite, simple_excess_bitvector_space_used_test) {
   ASSERT_EQ(bv.space_used(), block_space + excess_space);
 }
 
+TEST(ads_test_suite, simple_excess_bitvector_insert_test) {
+  srand(0);
+  const size_t n = 5000;
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv;
+  std::vector<bool> expected;
+
+  // Set bitvector by inserting bits
+  for (size_t i = 0; i < n; ++i) {
+    size_t pos = expected.empty() ? 0 : rand() % expected.size();
+    bool value = rand() % 2 == 0;
+
+    expected.insert(expected.begin() + pos, value);
+    bv.insert(pos, value);
+
+    int64_t excess = 0;
+    int64_t min_excess = 2;
+    size_t num_min = 0;
+    for (size_t j = 0; j < expected.size(); ++j) {
+      if (expected[j] == bv.excess().LEFT) {
+        ++excess;
+      } else {
+        --excess;
+      }
+
+      if (excess < min_excess) {
+        min_excess = excess;
+        num_min = 1;
+      } else if (excess == min_excess) {
+        min_excess = excess;
+        ++num_min;
+      }
+    }
+
+    const auto bv_excess = bv.excess().compute();
+    ASSERT_EQ(bv_excess.block_excess, excess);
+    ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+  }
+}
+
+TEST(ads_test_suite, simple_excess_bitvector_delete_test) {
+  srand(0);
+  const size_t n = 5000;
+  SimpleExcessBitVector<uint16_t, int16_t, 2> bv(n);
+  std::vector<bool> expected(n);
+
+  // Set values
+  for (size_t i = 0; i < n; ++i) {
+    bool value = rand() % 2 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+  }
+  int64_t excess = 0;
+  int64_t min_excess = 2;
+  size_t num_min = 0;
+  for (size_t j = 0; j < expected.size(); ++j) {
+    if (expected[j] == bv.excess().LEFT) {
+      ++excess;
+    } else {
+      --excess;
+    }
+
+    if (excess < min_excess) {
+      min_excess = excess;
+      num_min = 1;
+    } else if (excess == min_excess) {
+      min_excess = excess;
+      ++num_min;
+    }
+  }
+  const auto bv_excess = bv.excess().compute();
+  ASSERT_EQ(bv_excess.block_excess, excess);
+  ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+  ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+
+  // Delete until empty
+  for (size_t i = 0; i < n; ++i) {
+    size_t pos = rand() % expected.size();
+    bool value = rand() % 2 == 0;
+
+    expected.erase(expected.begin() + pos);
+    bv.delete_element(pos);
+
+    int64_t excess = 0;
+    int64_t min_excess = 2;
+    size_t num_min = 0;
+    for (size_t j = 0; j < expected.size(); ++j) {
+      if (expected[j] == bv.excess().LEFT) {
+        ++excess;
+      } else {
+        --excess;
+      }
+
+      if (excess < min_excess) {
+        min_excess = excess;
+        num_min = 1;
+      } else if (excess == min_excess) {
+        min_excess = excess;
+        ++num_min;
+      }
+    }
+
+    const auto bv_excess = bv.excess().compute();
+    ASSERT_EQ(bv_excess.block_excess, excess);
+    ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+  }
+}
+
+#ifndef NDEBUG
+TEST(ads_test_suite, simple_excess_bitvector_illegal_split_test) {
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv(334);
+  ASSERT_THROW(bv.split(), std::invalid_argument);
+}
+#endif
+
+TEST(ads_test_suite, simple_excess_bitvector_split_test) {
+  srand(0);
+  const size_t n = 8192;
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv(n);
+  std::vector<bool> expected(n);
+
+  // Set values
+  for (size_t i = 0; i < n; ++i) {
+    bool value = rand() % 2 == 0;
+    expected[i] = value;
+    bv.set(i, value);
+  }
+  {
+    int64_t excess = 0;
+    int64_t min_excess = 2;
+    size_t num_min = 0;
+    for (size_t j = 0; j < expected.size(); ++j) {
+      if (expected[j] == bv.excess().LEFT) {
+        ++excess;
+      } else {
+        --excess;
+      }
+
+      if (excess < min_excess) {
+        min_excess = excess;
+        num_min = 1;
+      } else if (excess == min_excess) {
+        min_excess = excess;
+        ++num_min;
+      }
+    }
+    const auto bv_excess = bv.excess().compute();
+    ASSERT_EQ(bv_excess.block_excess, excess);
+    ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+  }
+
+  // Split
+  auto snd_bv = bv.split();
+  {  // First half
+    int64_t excess = 0;
+    int64_t min_excess = 2;
+    size_t num_min = 0;
+    for (size_t j = 0; j < 4096; ++j) {
+      if (expected[j] == bv.excess().LEFT) {
+        ++excess;
+      } else {
+        --excess;
+      }
+
+      if (excess < min_excess) {
+        min_excess = excess;
+        num_min = 1;
+      } else if (excess == min_excess) {
+        min_excess = excess;
+        ++num_min;
+      }
+    }
+    const auto bv_excess = bv.excess().compute();
+    ASSERT_EQ(bv_excess.block_excess, excess);
+    ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+  }
+  {  // Second half
+    int64_t excess = 0;
+    int64_t min_excess = 2;
+    size_t num_min = 0;
+    for (size_t j = 4096; j < 8192; ++j) {
+      if (expected[j] == snd_bv.excess().LEFT) {
+        ++excess;
+      } else {
+        --excess;
+      }
+
+      if (excess < min_excess) {
+        min_excess = excess;
+        num_min = 1;
+      } else if (excess == min_excess) {
+        min_excess = excess;
+        ++num_min;
+      }
+    }
+    const auto bv_excess = snd_bv.excess().compute();
+    ASSERT_EQ(bv_excess.block_excess, excess);
+    ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+  }
+}
+
+#ifndef NDEBUG
+TEST(ads_test_suite, simple_excess_bitvector_illegal_copy_back_test) {
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv1(334);
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv2(334);
+  ASSERT_THROW(bv1.copy_to_back(bv2), std::invalid_argument);
+}
+#endif
+
+TEST(ads_test_suite, simple_excess_bitvector_copy_back_test) {
+  srand(42);
+  const size_t n = 4096;
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv1(n);
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv2(n);
+  std::vector<bool> expected(2 * n);
+
+  // Set values
+  for (size_t i = 0; i < 2 * n; ++i) {
+    bool value = rand() % 2 == 0;
+    expected[i] = value;
+    if (i < n) {
+      bv1.set(i, value);
+    } else {
+      bv2.set(i - n, value);
+    }
+  }
+
+  // Copy to back
+  bv1.copy_to_back(bv2);
+  int64_t excess = 0;
+  int64_t min_excess = 2;
+  size_t num_min = 0;
+  for (size_t j = 0; j < 2 * n; ++j) {
+    if (expected[j] == bv1.excess().LEFT) {
+      ++excess;
+    } else {
+      --excess;
+    }
+
+    if (excess < min_excess) {
+      min_excess = excess;
+      num_min = 1;
+    } else if (excess == min_excess) {
+      min_excess = excess;
+      ++num_min;
+    }
+  }
+  const auto bv_excess = bv1.excess().compute();
+  ASSERT_EQ(bv_excess.block_excess, excess);
+  ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+  ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+}
+
 }  // namespace ads_test
