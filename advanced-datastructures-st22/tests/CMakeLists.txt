@@ -9,6 +9,7 @@ add_executable(ads_test
   dynamic_bitvector_test.cpp
   bv_integration_test.cpp
   dynamic_bp_tree_test.cpp
+  simple_bitvector_excess_test.cpp
 )
 target_link_libraries(ads_test PUBLIC coverage_config gtest gtest_main)
 

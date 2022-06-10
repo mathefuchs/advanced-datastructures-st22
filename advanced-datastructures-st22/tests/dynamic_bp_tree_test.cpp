@@ -12,22 +12,49 @@
 namespace ads_test {
 
 TEST(ads_test_suite, dynamic_bp_tree_block_excess_test) {
-  using ExcessData = ads::bp::MinExcessNodeData<uint64_t, uint64_t, int64_t>;
+  using ExcessData =
+      ads::bp::MinExcessNodeData<uint64_t, uint64_t, int64_t, 2ull>;
+  std::vector<uint64_t> blocks;
 
-  ASSERT_EQ(ExcessData::compute_block_excess(0ull).block_excess,
-            ExcessData::BitVector::BLOCK_SIZE);
-  ASSERT_EQ(ExcessData::compute_block_excess(0ull).min_excess_in_block, 1);
-  ASSERT_EQ(ExcessData::compute_block_excess(~0ull).block_excess,
-            -ExcessData::BitVector::BLOCK_SIZE);
-  ASSERT_EQ(ExcessData::compute_block_excess(~0ull).min_excess_in_block,
-            -ExcessData::BitVector::BLOCK_SIZE);
-  ASSERT_EQ(ExcessData::compute_block_excess(7ull).block_excess,
-            ExcessData::BitVector::BLOCK_SIZE - 2 * 3);
-  ASSERT_EQ(ExcessData::compute_block_excess(7ull).min_excess_in_block, -3);
-  ASSERT_EQ(ExcessData::compute_block_excess(~7ull).block_excess,
-            -ExcessData::BitVector::BLOCK_SIZE + 2 * 3);
-  ASSERT_EQ(ExcessData::compute_block_excess(~7ull).min_excess_in_block,
-            -ExcessData::BitVector::BLOCK_SIZE + 2 * 3);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 0).block_excess, 0);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 0).min_excess_in_block,
+            2);
+
+  blocks.push_back(0ull);
+
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 1).block_excess, 1);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 1).min_excess_in_block,
+            1);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 43).block_excess, 43);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 43).min_excess_in_block,
+            1);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 63).block_excess, 63);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 63).min_excess_in_block,
+            1);
+
+  blocks.push_back(7ull);
+
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 64).block_excess, 64);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 64).min_excess_in_block,
+            1);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 65).block_excess, 63);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 0, 65).min_excess_in_block,
+            1);
+
+  blocks.push_back(~0ull);
+
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 1, 128).block_excess, 0);
+  ASSERT_EQ(
+      ExcessData::compute_block_excess(blocks, 1, 128).min_excess_in_block, 2);
+
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 1, 180).block_excess, -52);
+  ASSERT_EQ(
+      ExcessData::compute_block_excess(blocks, 1, 180).min_excess_in_block,
+      -52);
+  ASSERT_EQ(ExcessData::compute_block_excess(blocks, 1, 192).block_excess, -64);
+  ASSERT_EQ(
+      ExcessData::compute_block_excess(blocks, 1, 192).min_excess_in_block,
+      -64);
 }
 
 }  // namespace ads_test

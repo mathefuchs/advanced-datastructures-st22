@@ -45,9 +45,22 @@ class SimpleBitVector {
   /**
    * @brief The raw block data.
    */
-  struct BlockData : public AdditionalBlockData {
+  class BlockData : public AdditionalBlockData {
+   private:
+    /**
+     * @brief Friend class dynamic bitvector for
+     * construction out of a simple vector.
+     */
+    template <class BlockT, class SizeT, SizeT MinLeafSizeBlocks,
+              SizeT InitialLeafSizeBlocks, SizeT MaxLeafSizeBlocks,
+              class AdditionalNodeData, class AdditionalLeafData,
+              class AdditionalBlockDataT, bool ExcessQuerySupportT>
+    friend class DynamicBitVector;
+    friend class SimpleBitVector;
+
     std::vector<BlockType> blocks;
 
+   public:
     explicit BlockData(SizeType initial_block_size)
         : AdditionalBlockData(initial_block_size),
           blocks(initial_block_size, 0) {}
@@ -82,6 +95,18 @@ class SimpleBitVector {
     return (num_bits - 1) / BLOCK_SIZE + 1;
   }
 
+  /**
+   * @brief Updates the excess chunk that contains the given bit position.
+   *
+   * @param i The bit position.
+   */
+  void update_excess_chunk(SizeType i) {
+    const SizeType chunk_idx = i / (BLOCK_SIZE * data.BLOCKS_PER_CHUNK);
+    data.chunk_array[chunk_idx] =
+        AdditionalBlockData::MinExcessData::compute_block_excess(
+            data.blocks, chunk_idx, size());
+  }
+
  public:
   static constexpr SizeType BLOCK_SIZE =
       static_cast<SizeType>(8ull * sizeof(BlockType));
@@ -104,7 +129,20 @@ class SimpleBitVector {
    */
   SimpleBitVector(SizeType initial_size)
       : current_size_bits(initial_size),
-        data(initial_size == 0 ? 0 : get_required_blocks(initial_size)) {}
+        data(initial_size == 0 ? 0 : get_required_blocks(initial_size)) {
+    if constexpr (ExcessQuerySupport) {
+      // Fill chunk array
+      static constexpr SizeType bits_per_chunk =
+          AdditionalBlockData::BLOCKS_PER_CHUNK * BLOCK_SIZE;
+      SizeType remaining_size = initial_size;
+      for (SizeType i = 0; i < data.chunk_array.size(); ++i) {
+        data.chunk_array[i].block_excess =
+            remaining_size < bits_per_chunk ? remaining_size : bits_per_chunk;
+        data.chunk_array[i].min_excess_in_block = 1;
+        remaining_size -= bits_per_chunk;
+      }
+    }
+  }
 
   /**
    * @brief Constructs a new bit vector.
@@ -118,6 +156,13 @@ class SimpleBitVector {
    */
   SimpleBitVector(const SimpleBitVector& other)
       : current_size_bits(other.current_size_bits), data(other.data) {}
+
+  /**
+   * @brief Returns an accessor to the excess functionality.
+   *
+   * @return The excess functions.
+   */
+  const BlockData& excess() { return data; }
 
   /**
    * @brief Accesses the bit vector at index i.
@@ -150,7 +195,13 @@ class SimpleBitVector {
    * @param i The index to set.
    */
   void set(SizeType i) {
+    // Update block data
     data.blocks[i / BLOCK_SIZE] |= (1ull << (i % BLOCK_SIZE));
+
+    // Update excess chunk
+    if constexpr (ExcessQuerySupport) {
+      update_excess_chunk(i);
+    }
   }
 
   /**
@@ -159,7 +210,13 @@ class SimpleBitVector {
    * @param i The index to reset.
    */
   void reset(SizeType i) {
+    // Update block data
     data.blocks[i / BLOCK_SIZE] &= ~(1ull << (i % BLOCK_SIZE));
+
+    // Update excess chunk
+    if constexpr (ExcessQuerySupport) {
+      update_excess_chunk(i);
+    }
   }
 
   /**
@@ -184,7 +241,13 @@ class SimpleBitVector {
    * @param i The bit to flip.
    */
   void flip(SizeType i) {
+    // Update block data
     data.blocks[i / BLOCK_SIZE] ^= (1ull << (i % BLOCK_SIZE));
+
+    // Update excess chunk
+    if constexpr (ExcessQuerySupport) {
+      update_excess_chunk(i);
+    }
   }
 
   /**
@@ -508,7 +571,14 @@ class SimpleBitVector {
    */
   SizeType space_used() const {
     // Space for all blocks plus the current size variable
-    return (size_in_blocks() * sizeof(BlockType) + sizeof(SizeType)) * 8ull;
+    auto s = (size_in_blocks() * sizeof(BlockType) + sizeof(SizeType)) * 8ull;
+
+    // Additional excess chunk data
+    if constexpr (ExcessQuerySupport) {
+      s += data.space_used();
+    }
+
+    return s;
   }
 };
 
