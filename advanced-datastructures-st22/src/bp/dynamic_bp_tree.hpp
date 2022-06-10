@@ -14,15 +14,6 @@ namespace ads {
 namespace bp {
 
 /**
- * @brief Additional data to store in the leafs of the dynamic bitvector.
- *
- * @tparam BlockType The bit vector block type, e.g., uint64_t.
- * @tparam SizeType The bit vector size type, e.g., size_t.
- */
-template <class BlockType, class SizeType>
-struct MinExcessLeafData {};
-
-/**
  * @brief Additional data that needs to be maintained per node for (minimum)
  * excess queries.
  *
@@ -73,6 +64,40 @@ struct MinExcessNodeData {
 };
 
 /**
+ * @brief Additional data to store in the leafs of the dynamic bitvector.
+ */
+struct MinExcessLeafData {};
+
+/**
+ * @brief Additional data to store in the leafs of the dynamic bitvector.
+ *
+ * @tparam BlockType The bit vector block type, e.g., uint64_t.
+ * @tparam SizeType The bit vector size type, e.g., size_t.
+ * @tparam SignedIntType The signed integer type, e.g., int64_t.
+ * @tparam BlocksPerChunk The number of blocks per min-excess-chunk, e.g., w.
+ */
+template <class BlockType, class SizeType, class SignedIntType,
+          SizeType BlocksPerChunk>
+struct MinExcessBlockData {
+  using MinExcessData = MinExcessNodeData<BlockType, SizeType, SignedIntType>;
+
+  /**
+   * @brief The number of blocks per min-excess-chunk.
+   */
+  static constexpr SizeType BLOCKS_PER_CHUNK = BlocksPerChunk;
+
+  /**
+   * @brief Excess information per block to have Theta(w) operations.
+   */
+  std::vector<MinExcessData> chunk_array;
+
+  explicit MinExcessBlockData(SizeType initial_block_size)
+      : chunk_array(initial_block_size == 0
+                        ? 0
+                        : (initial_block_size - 1) / BLOCKS_PER_CHUNK + 1) {}
+};
+
+/**
  * @brief A dynamic bitvector supporting (minimum excess queries).
  *
  * @tparam BlockType The bit vector block type, e.g., uint<w>_t.
@@ -81,15 +106,17 @@ struct MinExcessNodeData {
  * @tparam MinLeafSizeBlocks The minimum leaf size in blocks, e.g., w / 2.
  * @tparam InitialLeafSizeBlocks The initial leaf size in blocks, e.g., w.
  * @tparam MaxLeafSizeBlocks The maximum leaf size in blocks, e.g., 2 * w.
+ * @tparam BlocksPerChunk The number of blocks per min-excess-chunk, e.g., w.
  */
 template <class BlockType, class SizeType, class SignedIntType,
           SizeType MinLeafSizeBlocks, SizeType InitialLeafSizeBlocks,
-          SizeType MaxLeafSizeBlocks>
-using DynamicMinExcessBitVector =
-    bv::DynamicBitVector<BlockType, SizeType, MinLeafSizeBlocks,
-                         InitialLeafSizeBlocks, MaxLeafSizeBlocks,
-                         MinExcessNodeData<BlockType, SizeType, SignedIntType>,
-                         MinExcessLeafData<BlockType, SizeType>, true>;
+          SizeType MaxLeafSizeBlocks, SizeType BlocksPerChunk>
+using DynamicMinExcessBitVector = bv::DynamicBitVector<
+    BlockType, SizeType, MinLeafSizeBlocks, InitialLeafSizeBlocks,
+    MaxLeafSizeBlocks, MinExcessNodeData<BlockType, SizeType, SignedIntType>,
+    MinExcessLeafData,
+    MinExcessBlockData<BlockType, SizeType, SignedIntType, BlocksPerChunk>,
+    true>;
 
 /**
  * @brief Dynamic succinct tree datastructure.
@@ -100,10 +127,11 @@ using DynamicMinExcessBitVector =
  * @tparam MinLeafSizeBlocks The minimum leaf size in blocks, e.g., w / 2.
  * @tparam InitialLeafSizeBlocks The initial leaf size in blocks, e.g., w.
  * @tparam MaxLeafSizeBlocks The maximum leaf size in blocks, e.g., 2 * w.
+ * @tparam BlocksPerChunk The number of blocks per min-excess-chunk, e.g., w.
  */
 template <class BlockType, class SizeType, class SignedIntType,
           SizeType MinLeafSizeBlocks, SizeType InitialLeafSizeBlocks,
-          SizeType MaxLeafSizeBlocks>
+          SizeType MaxLeafSizeBlocks, SizeType BlocksPerChunk>
 class DynamicBPTree {
  private:
   static constexpr bool LEFT =
@@ -113,7 +141,7 @@ class DynamicBPTree {
   using BitVector =
       DynamicMinExcessBitVector<BlockType, SizeType, SignedIntType,
                                 MinLeafSizeBlocks, InitialLeafSizeBlocks,
-                                MaxLeafSizeBlocks>;
+                                MaxLeafSizeBlocks, BlocksPerChunk>;
 
   /**
    * @brief Underlying bitvector datastructure.

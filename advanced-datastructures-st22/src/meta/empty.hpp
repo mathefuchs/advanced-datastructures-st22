@@ -7,7 +7,11 @@ namespace meta {
 /**
  * @brief Empty struct to pass as template argument if needed.
  */
-struct Empty {};
+template <class T>
+struct Empty {
+  Empty() {}
+  explicit Empty(T) {}
+};
 
 }  // namespace meta
 }  // namespace ads

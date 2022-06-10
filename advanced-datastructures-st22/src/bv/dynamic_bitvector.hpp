@@ -24,12 +24,15 @@ namespace bv {
  * @tparam MaxLeafSizeBlocks The maximum leaf size in blocks, e.g., 2 * w.
  * @tparam AdditionalNodeData Additional data to store in tree nodes.
  * @tparam AdditionalLeafData Additional data to store in leafs.
+ * @tparam AdditionalBlockData Additional data to store with the vector of
+ * blocks.
  * @tparam ExcessQuerySupport Whether to support excess queries.
  */
 template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
           SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks,
-          class AdditionalNodeData = meta::Empty,
-          class AdditionalLeafData = meta::Empty,
+          class AdditionalNodeData = meta::Empty<SizeType>,
+          class AdditionalLeafData = meta::Empty<SizeType>,
+          class AdditionalBlockData = meta::Empty<SizeType>,
           bool ExcessQuerySupport = false>
 class DynamicBitVector {
  private:
@@ -41,7 +44,8 @@ class DynamicBitVector {
   /**
    * @brief Short-hand name for leafs.
    */
-  using Leaf = SimpleBitVector<BlockType, SizeType>;
+  using Leaf = SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
+                               ExcessQuerySupport>;
 
   /**
    * @brief Colors of the nodes.
@@ -794,6 +798,29 @@ class DynamicBitVector {
     }
   }
 
+  /**
+   * @brief Sequentially updates the leaf's excess counters.
+   *
+   * @param node The leaf node.
+   */
+  void update_leaf_excess(Node *node) {
+    // Sequentially scan leaf to update excess counters
+    node->min_excess_in_block = 2;
+    node->block_excess = 0;
+    for (SizeType i = 0; i < node->leaf_data->bv.size(); ++i) {
+      if (node->leaf_data->bv[i] == Node::LEFT) {
+        ++node->block_excess;
+      } else {
+        --node->block_excess;
+      }
+
+      // Update min excess
+      if (node->block_excess < node->min_excess_in_block) {
+        node->min_excess_in_block = node->block_excess;
+      }
+    }
+  }
+
  public:
   /**
    * @brief Construct a new empty dynamic bitvector.
@@ -823,6 +850,10 @@ class DynamicBitVector {
       root->leaf_data = new LeafData{{}, bitvector};
       current_size = bitvector.size();
       total_ones = bitvector.num_ones();
+
+      if constexpr (ExcessQuerySupport) {
+        update_leaf_excess(root);
+      }
     } else {
       // Init root node
       root->leaf_data = new LeafData();
@@ -832,8 +863,8 @@ class DynamicBitVector {
       Node *rightmost_leaf = root;
       for (SizeType i = 0; i < bitvector.size_in_blocks(); ++i) {
         // Insert block
-        const BlockType block_to_insert = bitvector.blocks[i];
-        rightmost_leaf->leaf_data->bv.blocks.push_back(block_to_insert);
+        const BlockType block_to_insert = bitvector.data.blocks[i];
+        rightmost_leaf->leaf_data->bv.data.blocks.push_back(block_to_insert);
 
         // Update counters along path to root
         const SizeType bits_inserted = remaining_size < Leaf::BLOCK_SIZE

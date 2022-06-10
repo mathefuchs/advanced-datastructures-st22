@@ -7,6 +7,8 @@
 #include <sstream>
 #include <vector>
 
+#include "meta/empty.hpp"
+
 namespace ads {
 namespace bv {
 
@@ -16,7 +18,7 @@ namespace bv {
 template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
           SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks,
           class AdditionalNodeData, class AdditionalLeafData,
-          bool ExcessQuerySupport>
+          class AdditionalBlockData, bool ExcessQuerySupport>
 class DynamicBitVector;
 
 /**
@@ -25,7 +27,9 @@ class DynamicBitVector;
  * @tparam BlockType The block type, e.g., uint64_t.
  * @tparam SizeType The size type, e.g., size_t.
  */
-template <class BlockType, class SizeType = size_t>
+template <class BlockType, class SizeType = uint64_t,
+          class AdditionalBlockData = meta::Empty<SizeType>,
+          bool ExcessQuerySupport = false>
 class SimpleBitVector {
  private:
   /**
@@ -35,11 +39,22 @@ class SimpleBitVector {
   template <class BlockT, class SizeT, SizeT MinLeafSizeBlocks,
             SizeT InitialLeafSizeBlocks, SizeT MaxLeafSizeBlocks,
             class AdditionalNodeData, class AdditionalLeafData,
-            bool ExcessQuerySupport>
+            class AdditionalBlockDataT, bool ExcessQuerySupportT>
   friend class DynamicBitVector;
 
+  /**
+   * @brief The raw block data.
+   */
+  struct BlockData : public AdditionalBlockData {
+    std::vector<BlockType> blocks;
+
+    explicit BlockData(SizeType initial_block_size)
+        : AdditionalBlockData(initial_block_size),
+          blocks(initial_block_size, 0) {}
+  };
+
   SizeType current_size_bits;
-  std::vector<BlockType> blocks;
+  BlockData data;
 
   /**
    * @brief Use built-in popcount function with correct width.
@@ -89,7 +104,7 @@ class SimpleBitVector {
    */
   SimpleBitVector(SizeType initial_size)
       : current_size_bits(initial_size),
-        blocks(initial_size == 0 ? 0 : get_required_blocks(initial_size), 0) {}
+        data(initial_size == 0 ? 0 : get_required_blocks(initial_size)) {}
 
   /**
    * @brief Constructs a new bit vector.
@@ -102,7 +117,7 @@ class SimpleBitVector {
    * @param other The other bitvector.
    */
   SimpleBitVector(const SimpleBitVector& other)
-      : current_size_bits(other.current_size_bits), blocks(other.blocks) {}
+      : current_size_bits(other.current_size_bits), data(other.data) {}
 
   /**
    * @brief Accesses the bit vector at index i.
@@ -112,7 +127,7 @@ class SimpleBitVector {
    * @return false otherwise.
    */
   bool operator[](SizeType i) const {
-    return (blocks[i / BLOCK_SIZE] >> (i % BLOCK_SIZE)) & 1ull;
+    return (data.blocks[i / BLOCK_SIZE] >> (i % BLOCK_SIZE)) & 1ull;
   }
 
   /**
@@ -134,7 +149,9 @@ class SimpleBitVector {
    *
    * @param i The index to set.
    */
-  void set(SizeType i) { blocks[i / BLOCK_SIZE] |= (1ull << (i % BLOCK_SIZE)); }
+  void set(SizeType i) {
+    data.blocks[i / BLOCK_SIZE] |= (1ull << (i % BLOCK_SIZE));
+  }
 
   /**
    * @brief Resets the i-th element.
@@ -142,7 +159,7 @@ class SimpleBitVector {
    * @param i The index to reset.
    */
   void reset(SizeType i) {
-    blocks[i / BLOCK_SIZE] &= ~(1ull << (i % BLOCK_SIZE));
+    data.blocks[i / BLOCK_SIZE] &= ~(1ull << (i % BLOCK_SIZE));
   }
 
   /**
@@ -151,7 +168,7 @@ class SimpleBitVector {
    * @return The size in blocks.
    */
   SizeType size_in_blocks() const {
-    return static_cast<SizeType>(blocks.size());
+    return static_cast<SizeType>(data.blocks.size());
   }
 
   /**
@@ -167,7 +184,7 @@ class SimpleBitVector {
    * @param i The bit to flip.
    */
   void flip(SizeType i) {
-    blocks[i / BLOCK_SIZE] ^= (1ull << (i % BLOCK_SIZE));
+    data.blocks[i / BLOCK_SIZE] ^= (1ull << (i % BLOCK_SIZE));
   }
 
   /**
@@ -178,8 +195,8 @@ class SimpleBitVector {
    */
   void insert(SizeType i, bool value) {
     // Update counters
-    if (current_size_bits == BLOCK_SIZE * blocks.size()) {
-      blocks.push_back(0);
+    if (current_size_bits == BLOCK_SIZE * data.blocks.size()) {
+      data.blocks.push_back(0);
     }
 
     if (current_size_bits++ == i) {
@@ -193,10 +210,11 @@ class SimpleBitVector {
       if ((block_pos + 1) % BLOCK_SIZE != 0) {
         // Shift remaining values in block (only necessary when not inserting at
         // end of block)
-        const BlockType values = ((~0ull << block_pos) & blocks[block_num])
+        const BlockType values = ((~0ull << block_pos) & data.blocks[block_num])
                                  << 1;
         const BlockType mask = (~0ull << (block_pos + 1));
-        blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
+        data.blocks[block_num] =
+            (data.blocks[block_num] & ~mask) | (values & mask);
       }
 
       // Set inserted element
@@ -206,7 +224,7 @@ class SimpleBitVector {
       for (SizeType block = block_num + 1; block < size_in_blocks(); ++block) {
         const bool new_last_block_value =
             (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
-        blocks[block] = (blocks[block] << 1) & ~1ull;
+        data.blocks[block] = (data.blocks[block] << 1) & ~1ull;
         set(block * BLOCK_SIZE, last_block_value);
         last_block_value = new_last_block_value;
       }
@@ -231,9 +249,10 @@ class SimpleBitVector {
       const SizeType block_pos = i % BLOCK_SIZE;
       SizeType last_block_pos = block_num * BLOCK_SIZE + BLOCK_SIZE - 1;
       const BlockType values =
-          ((~0ull << (block_pos + 1)) & blocks[block_num]) >> 1;
+          ((~0ull << (block_pos + 1)) & data.blocks[block_num]) >> 1;
       const BlockType mask = ~0ull << block_pos;
-      blocks[block_num] = (blocks[block_num] & ~mask) | (values & mask);
+      data.blocks[block_num] =
+          (data.blocks[block_num] & ~mask) | (values & mask);
 
       // Shift all other blocks after it
       for (SizeType block = block_num + 1; block < size_in_blocks(); ++block) {
@@ -242,7 +261,7 @@ class SimpleBitVector {
         last_block_pos += BLOCK_SIZE;
 
         // Shift complete block
-        blocks[block] >>= 1;
+        data.blocks[block] >>= 1;
       }
 
       // Reset last block's last bit
@@ -250,9 +269,9 @@ class SimpleBitVector {
     }
 
     // Delete empty blocks
-    if (!blocks.empty() &&
-        current_size_bits == BLOCK_SIZE * (blocks.size() - 1)) {
-      blocks.pop_back();
+    if (!data.blocks.empty() &&
+        current_size_bits == BLOCK_SIZE * (data.blocks.size() - 1)) {
+      data.blocks.pop_back();
     }
   }
 
@@ -264,9 +283,10 @@ class SimpleBitVector {
    */
   SizeType rank_one(SizeType i) const {
     const SizeType block_num = i / BLOCK_SIZE;
-    SizeType rank = popcount(blocks[block_num] & ~(~0ull << (i % BLOCK_SIZE)));
+    SizeType rank =
+        popcount(data.blocks[block_num] & ~(~0ull << (i % BLOCK_SIZE)));
     for (SizeType block = 0; block < block_num; ++block) {
-      rank += popcount(blocks[block]);
+      rank += popcount(data.blocks[block]);
     }
     return rank;
   }
@@ -290,7 +310,7 @@ class SimpleBitVector {
     SizeType select = i;
     SizeType block_idx = 0;
     for (; block_idx < size_in_blocks(); ++block_idx) {
-      const auto num_ones = popcount(blocks[block_idx]);
+      const auto num_ones = popcount(data.blocks[block_idx]);
       if (select > num_ones) {
         select -= num_ones;
       } else {
@@ -299,7 +319,7 @@ class SimpleBitVector {
     }
 
     // Scan identified block
-    BlockType block = blocks[block_idx];
+    BlockType block = data.blocks[block_idx];
     SizeType block_pos = BLOCK_SIZE * block_idx;
     for (;; ++block_pos, block >>= 1) {
       if (block & 1ull) {
@@ -325,7 +345,7 @@ class SimpleBitVector {
     SizeType select = i;
     SizeType block_idx = 0;
     for (; block_idx < size_in_blocks(); ++block_idx) {
-      const auto num_zeros = BLOCK_SIZE - popcount(blocks[block_idx]);
+      const auto num_zeros = BLOCK_SIZE - popcount(data.blocks[block_idx]);
       if (select > num_zeros) {
         select -= num_zeros;
       } else {
@@ -334,7 +354,7 @@ class SimpleBitVector {
     }
 
     // Scan identified block
-    BlockType block = blocks[block_idx];
+    BlockType block = data.blocks[block_idx];
     SizeType block_pos = BLOCK_SIZE * block_idx;
     for (;; ++block_pos, block >>= 1) {
       if ((block & 1ull) == 0) {
@@ -394,10 +414,10 @@ class SimpleBitVector {
     // Copy second half to new destination
     const SizeType previous_num_blocks = size_in_blocks();
     for (SizeType i = moved_blocks; i < previous_num_blocks; ++i) {
-      split_out_bv.blocks[i - moved_blocks] = blocks[i];
+      split_out_bv.data.blocks[i - moved_blocks] = data.blocks[i];
     }
     for (SizeType i = moved_blocks; i < previous_num_blocks; ++i) {
-      blocks.pop_back();
+      data.blocks.pop_back();
     }
 
     // Update size
@@ -414,7 +434,7 @@ class SimpleBitVector {
   SizeType num_ones() const {
     SizeType rank = 0;
     for (SizeType block = 0; block < size_in_blocks(); ++block) {
-      rank += popcount(blocks[block]);
+      rank += popcount(data.blocks[block]);
     }
     return rank;
   }
@@ -447,33 +467,33 @@ class SimpleBitVector {
         get_required_blocks(current_size_bits + other.size());
     const SizeType old_num_blocks = size_in_blocks();
     for (SizeType i = old_num_blocks; i < required_blocks; ++i) {
-      blocks.push_back(0);
+      data.blocks.push_back(0);
     }
 
     // Copy all blocks
     const SizeType insert_pos = current_size_bits % BLOCK_SIZE;
     if (insert_pos != 0) {
       // Insert position not aligned with block size
-      BlockType last_block = blocks[old_num_blocks - 1];
-      BlockType next_block = other.blocks[0];
+      BlockType last_block = data.blocks[old_num_blocks - 1];
+      BlockType next_block = other.data.blocks[0];
       SizeType next_block_to_copy = 1;
       for (SizeType i = old_num_blocks - 1; i < size_in_blocks(); ++i) {
         // Copy block with offset
         const BlockType mask = ~0ull << insert_pos;
         const SizeType last_block_shift =
             i == old_num_blocks - 1 ? 0 : BLOCK_SIZE - insert_pos;
-        blocks[i] = ((last_block >> last_block_shift) & ~mask) |
-                    ((next_block << insert_pos) & mask);
+        data.blocks[i] = ((last_block >> last_block_shift) & ~mask) |
+                         ((next_block << insert_pos) & mask);
         last_block = next_block;
         next_block = next_block_to_copy < other.size_in_blocks()
-                         ? other.blocks[next_block_to_copy]
+                         ? other.data.blocks[next_block_to_copy]
                          : 0;
         ++next_block_to_copy;
       }
     } else {
       // Insert position aligned with block, makes things easier
       for (SizeType i = old_num_blocks; i < size_in_blocks(); ++i) {
-        blocks[i] = other.blocks[i - old_num_blocks];
+        data.blocks[i] = other.data.blocks[i - old_num_blocks];
       }
     }
 
@@ -497,27 +517,10 @@ class SimpleBitVector {
  *
  * @tparam BlockType The block type.
  */
-template <class BlockType, class SizeType>
-constexpr SizeType SimpleBitVector<BlockType, SizeType>::BLOCK_SIZE;
-
-/**
- * @brief Custom operator to print bit-vectors.
- *
- * @tparam BlockType The block type.
- * @tparam SizeType The size type.
- * @param os The output stream.
- * @param bv The bit vector.
- * @return The output stream.
- */
-template <class BlockType, class SizeType>
-static std::ostream& operator<<(
-    std::ostream& os, const SimpleBitVector<BlockType, SizeType>& bv) {
-  for (SizeType i = 0; i < bv.size(); ++i) {
-    os << (bv[i] ? "1" : "0");
-  }
-  os << "\n";
-  return os;
-}
+template <class BlockType, class SizeType, class AdditionalBlockData,
+          bool ExcessQuerySupport>
+constexpr SizeType SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
+                                   ExcessQuerySupport>::BLOCK_SIZE;
 
 }  // namespace bv
 }  // namespace ads
