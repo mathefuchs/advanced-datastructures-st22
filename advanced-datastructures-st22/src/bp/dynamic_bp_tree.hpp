@@ -59,6 +59,7 @@ struct MinExcessNodeData {
 
   SignedIntType block_excess = 0;
   SignedIntType min_excess_in_block = 2;
+  SizeType num_occ_min_excess = 0;
 
   /**
    * @brief Computes the block's excess.
@@ -88,6 +89,9 @@ struct MinExcessNodeData {
         // Update min excess
         if (excess.block_excess < excess.min_excess_in_block) {
           excess.min_excess_in_block = excess.block_excess;
+          excess.num_occ_min_excess = 1;
+        } else if (excess.block_excess == excess.min_excess_in_block) {
+          ++excess.num_occ_min_excess;
         }
       }
       remaining_bits -= BLOCK_SIZE;
@@ -155,7 +159,14 @@ class MinExcessBlockData {
           excess_data.min_excess_in_block) {
         excess_data.min_excess_in_block =
             excess_data.block_excess + chunk_array[c].min_excess_in_block;
+        excess_data.num_occ_min_excess = chunk_array[c].num_occ_min_excess;
+      } else if (excess_data.block_excess +
+                     chunk_array[c].min_excess_in_block ==
+                 excess_data.min_excess_in_block) {
+        // Excess chunks share same minimum; accumulate number of occurrences
+        excess_data.num_occ_min_excess += chunk_array[c].num_occ_min_excess;
       }
+
       excess_data.block_excess += chunk_array[c].block_excess;
     }
     return excess_data;

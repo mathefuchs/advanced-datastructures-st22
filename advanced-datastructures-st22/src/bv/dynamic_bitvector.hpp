@@ -804,21 +804,7 @@ class DynamicBitVector {
    * @param node The leaf node.
    */
   void update_leaf_excess(Node *node) {
-    // Sequentially scan leaf to update excess counters
-    node->min_excess_in_block = 2;
-    node->block_excess = 0;
-    for (SizeType i = 0; i < node->leaf_data->bv.size(); ++i) {
-      if (node->leaf_data->bv[i] == Node::LEFT) {
-        ++node->block_excess;
-      } else {
-        --node->block_excess;
-      }
-
-      // Update min excess
-      if (node->block_excess < node->min_excess_in_block) {
-        node->min_excess_in_block = node->block_excess;
-      }
-    }
+    
   }
 
  public:
@@ -850,10 +836,6 @@ class DynamicBitVector {
       root->leaf_data = new LeafData{{}, bitvector};
       current_size = bitvector.size();
       total_ones = bitvector.num_ones();
-
-      if constexpr (ExcessQuerySupport) {
-        update_leaf_excess(root);
-      }
     } else {
       // Init root node
       root->leaf_data = new LeafData();

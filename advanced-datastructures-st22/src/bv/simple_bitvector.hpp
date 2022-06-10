@@ -139,6 +139,7 @@ class SimpleBitVector {
         data.chunk_array[i].block_excess =
             remaining_size < bits_per_chunk ? remaining_size : bits_per_chunk;
         data.chunk_array[i].min_excess_in_block = 1;
+        data.chunk_array[i].num_occ_min_excess = 1;
         remaining_size -= bits_per_chunk;
       }
     }
@@ -258,8 +259,15 @@ class SimpleBitVector {
    */
   void insert(SizeType i, bool value) {
     // Update counters
-    if (current_size_bits == BLOCK_SIZE * data.blocks.size()) {
+    if (current_size_bits == BLOCK_SIZE * size_in_blocks()) {
       data.blocks.push_back(0);
+
+      // Add new excess chunk if necessary
+      if constexpr (ExcessQuerySupport) {
+        if (data.chunk_array.size() * data.BLOCKS_PER_CHUNK == size_in_blocks()) {
+          data.chunk_array.emplace_back();
+        }
+      }
     }
 
     if (current_size_bits++ == i) {
@@ -288,6 +296,9 @@ class SimpleBitVector {
         const bool new_last_block_value =
             (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
         data.blocks[block] = (data.blocks[block] << 1) & ~1ull;
+
+        // shifted in = last_block_value, shifted out = new_last_block_value
+
         set(block * BLOCK_SIZE, last_block_value);
         last_block_value = new_last_block_value;
       }
