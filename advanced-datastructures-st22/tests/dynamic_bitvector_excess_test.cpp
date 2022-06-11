@@ -252,7 +252,7 @@ TEST(ads_test_suite,
 
 TEST(ads_test_suite, dynamic_excess_bitvector_single_leaf_test) {
   srand(23);
-  const size_t n = 1000;
+  const size_t n = 900;
   std::vector<bool> expected;
   SimpleExcessBitVector<uint64_t, int64_t, 8> simple_bv;
 
