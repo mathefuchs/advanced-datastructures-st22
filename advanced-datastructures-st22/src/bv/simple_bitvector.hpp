@@ -590,9 +590,6 @@ class SimpleBitVector {
     const SizeType required_blocks =
         get_required_blocks(current_size_bits + other.size());
     const SizeType old_num_blocks = size_in_blocks();
-    for (SizeType i = old_num_blocks; i < required_blocks; ++i) {
-      data.blocks.push_back(0);
-    }
 
     // Copy all blocks
     const SizeType insert_pos = current_size_bits % BLOCK_SIZE;
@@ -602,6 +599,12 @@ class SimpleBitVector {
         throw std::invalid_argument("Non-aligned copy-to-back not supported.");
       }
 #endif
+
+      // Allocate enough space
+      data.blocks.reserve(required_blocks);
+      for (SizeType i = old_num_blocks; i < required_blocks; ++i) {
+        data.blocks.push_back(0);
+      }
 
       // Insert position not aligned with block size
       BlockType last_block = data.blocks[old_num_blocks - 1];
@@ -622,14 +625,16 @@ class SimpleBitVector {
       }
     } else {
       // Insert position aligned with block makes things easier
-      for (SizeType i = old_num_blocks; i < size_in_blocks(); ++i) {
-        data.blocks[i] = other.data.blocks[i - old_num_blocks];
+      data.blocks.reserve(required_blocks);
+      for (SizeType i = old_num_blocks; i < required_blocks; ++i) {
+        data.blocks.push_back(other.data.blocks[i - old_num_blocks]);
       }
 
       if constexpr (ExcessQuerySupport) {
         const SizeType required_chunks =
             (required_blocks - 1) / AdditionalBlockData::BLOCKS_PER_CHUNK + 1;
         const SizeType old_num_chunks = data.chunk_array.size();
+        data.chunk_array.reserve(required_chunks);
         for (SizeType i = old_num_chunks; i < required_chunks; ++i) {
           data.chunk_array.push_back(
               other.data.chunk_array[i - old_num_chunks]);
