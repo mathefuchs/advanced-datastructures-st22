@@ -34,14 +34,16 @@ static inline void print_results(const std::string &algo, int64_t time,
  *
  * @tparam BlockType The block type.
  * @tparam SizeType The size type.
+ * @tparam SignedIntType The signed integer type.
  * @tparam MinLeafSizeBlocks The minimum leaf size in blocks.
  * @tparam InitialLeafSizeBlocks The initial leaf size in blocks.
  * @tparam MaxLeafSizeBlocks The maximum leaf size in blocks.
  * @param input_file The input file with queries.
  * @param output_file The output file.
  */
-template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
-          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks>
+template <class BlockType, class SizeType, class SignedIntType,
+          SizeType MinLeafSizeBlocks, SizeType InitialLeafSizeBlocks,
+          SizeType MaxLeafSizeBlocks>
 static inline void run_bv(const std::string &input_file,
                           const std::string &output_file) {
   // Prepare everything
@@ -52,8 +54,9 @@ static inline void run_bv(const std::string &input_file,
 
   // Run all queries
   const auto start = std::chrono::high_resolution_clock::now();
-  ads::bv::DynamicBitVector<BlockType, SizeType, MinLeafSizeBlocks,
-                            InitialLeafSizeBlocks, MaxLeafSizeBlocks>
+  ads::bv::DynamicBitVector<BlockType, SizeType, SignedIntType,
+                            MinLeafSizeBlocks, InitialLeafSizeBlocks,
+                            MaxLeafSizeBlocks>
       bv(problem_instance.bv);
   for (const auto &query : problem_instance.queries) {
     switch (query.type) {
@@ -129,7 +132,7 @@ int main(int argc, char **argv) {
 
   // Run program
   if (bv) {
-    run_bv<uint64_t, uint64_t, 32, 64, 128>(input_file, output_file);
+    run_bv<uint64_t, uint64_t, int64_t, 32, 64, 128>(input_file, output_file);
   } else if (bp) {
     run_bp(input_file, output_file);
   } else {

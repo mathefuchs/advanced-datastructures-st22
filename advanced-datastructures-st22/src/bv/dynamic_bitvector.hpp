@@ -19,6 +19,7 @@ namespace bv {
  *
  * @tparam BlockType The bit vector block type, e.g., uint<w>_t.
  * @tparam SizeType The bit vector size type, e.g., size_t.
+ * @tparam SignedIntType The signed integer type, e.g., int64_t.
  * @tparam MinLeafSizeBlocks The minimum leaf size in blocks, e.g., w / 2.
  * @tparam InitialLeafSizeBlocks The initial leaf size in blocks, e.g., w.
  * @tparam MaxLeafSizeBlocks The maximum leaf size in blocks, e.g., 2 * w.
@@ -28,8 +29,9 @@ namespace bv {
  * blocks.
  * @tparam ExcessQuerySupport Whether to support excess queries.
  */
-template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
-          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks,
+template <class BlockType, class SizeType, class SignedIntType,
+          SizeType MinLeafSizeBlocks, SizeType InitialLeafSizeBlocks,
+          SizeType MaxLeafSizeBlocks,
           class AdditionalNodeData = meta::Empty<SizeType>,
           class AdditionalLeafData = meta::Empty<SizeType>,
           class AdditionalBlockData = meta::Empty<SizeType>,
@@ -44,8 +46,8 @@ class DynamicBitVector {
   /**
    * @brief Short-hand name for leafs.
    */
-  using Leaf = SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
-                               ExcessQuerySupport>;
+  using Leaf = SimpleBitVector<BlockType, SizeType, SignedIntType,
+                               AdditionalBlockData, ExcessQuerySupport>;
 
   /**
    * @brief Colors of the nodes.
@@ -125,6 +127,41 @@ class DynamicBitVector {
   }
 
   /**
+   * @brief Updates the excess counters for a given inner node.
+   *
+   * @param node The inner node.
+   */
+  void update_inner_node_excess(Node *node) {
+    node->block_excess = node->left->block_excess + node->right->block_excess;
+    if (node->left->min_excess_in_block <
+        node->left->block_excess + node->right->min_excess_in_block) {
+      node->min_excess_in_block = node->left->min_excess_in_block;
+      node->num_occ_min_excess = node->left->num_occ_min_excess;
+    } else if (node->left->min_excess_in_block ==
+               node->left->block_excess + node->right->min_excess_in_block) {
+      node->min_excess_in_block = node->left->min_excess_in_block;
+      node->num_occ_min_excess =
+          node->left->num_occ_min_excess + node->right->num_occ_min_excess;
+    } else {
+      node->min_excess_in_block =
+          node->left->block_excess + node->right->min_excess_in_block;
+      node->num_occ_min_excess = node->right->num_occ_min_excess;
+    }
+  }
+
+  /**
+   * @brief Updates the leaf's excess counters.
+   *
+   * @param node The leaf node.
+   */
+  void update_leaf_excess(Node *node) {
+    const auto excess = node->leaf_data->bv.excess().compute();
+    node->block_excess = excess.block_excess;
+    node->min_excess_in_block = excess.min_excess_in_block;
+    node->num_occ_min_excess = excess.num_occ_min_excess;
+  }
+
+  /**
    * @brief Left rotation.
    *
    * @param node The node to perform the left rotation on.
@@ -156,6 +193,12 @@ class DynamicBitVector {
     // Update bit counters
     right_child->num_bits_left_tree += node->num_bits_left_tree;
     right_child->ones_in_left_tree += node->ones_in_left_tree;
+
+    // Update excess counters
+    if constexpr (ExcessQuerySupport) {
+      update_inner_node_excess(node);
+      update_inner_node_excess(right_child);
+    }
   }
 
   /**
@@ -190,6 +233,12 @@ class DynamicBitVector {
     // Update bit counters
     node->num_bits_left_tree -= left_child->num_bits_left_tree;
     node->ones_in_left_tree -= left_child->ones_in_left_tree;
+
+    // Update excess counters
+    if constexpr (ExcessQuerySupport) {
+      update_inner_node_excess(node);
+      update_inner_node_excess(left_child);
+    }
   }
 
   /**
@@ -402,6 +451,12 @@ class DynamicBitVector {
       } else {
         node->parent->right = leaf;
       }
+
+      // Update excess counters
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node->parent);
+      }
+
       delete node;
       set_color(root, Color::BLACK);
     }
@@ -454,7 +509,15 @@ class DynamicBitVector {
     if (node->leaf_data) {
       // Base case: If in leaf, access bit
       const bool prev_value = node->leaf_data->bv[i];
-      node->leaf_data->bv.set(i, value);
+      if (prev_value != value) {
+        node->leaf_data->bv.set(i, value);
+
+        // Update excess
+        if constexpr (ExcessQuerySupport) {
+          update_leaf_excess(node);
+        }
+      }
+
       if (prev_value && !value) {
         return BitChangeResult::ONE_LESS_ONE;
       } else if (!prev_value && value) {
@@ -464,11 +527,19 @@ class DynamicBitVector {
       }
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
-      return set_bit(node->right, i - node->num_bits_left_tree, value);
+      const auto res =
+          set_bit(node->right, i - node->num_bits_left_tree, value);
+
+      // Update excess
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
+
+      return res;
     } else {
       // Index in left subtree
-      const auto change_in_ones = set_bit(node->left, i, value);
-      switch (change_in_ones) {
+      const auto res = set_bit(node->left, i, value);
+      switch (res) {
         case BitChangeResult::ONE_LESS_ONE:
           --node->ones_in_left_tree;
           break;
@@ -479,7 +550,13 @@ class DynamicBitVector {
         default:
           break;
       }
-      return change_in_ones;
+
+      // Update excess
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
+
+      return res;
     }
   }
 
@@ -494,18 +571,38 @@ class DynamicBitVector {
     if (node->leaf_data) {
       // Base case: If in leaf, flip bit
       node->leaf_data->bv.flip(i);
+
+      // Update excess
+      if constexpr (ExcessQuerySupport) {
+        update_leaf_excess(node);
+      }
+
       return node->leaf_data->bv[i];
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
-      return flip_bit(node->right, i - node->num_bits_left_tree);
+      const bool flipped = flip_bit(node->right, i - node->num_bits_left_tree);
+
+      // Update excess
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
+
+      return flipped;
     } else {
       // Index in left subtree
       const bool flipped_to_one = flip_bit(node->left, i);
+
       if (flipped_to_one) {
         ++node->ones_in_left_tree;
       } else {
         --node->ones_in_left_tree;
       }
+
+      // Update excess
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
+
       return flipped_to_one;
     }
   }
@@ -603,17 +700,37 @@ class DynamicBitVector {
         node->right->parent = node;
         node->right->leaf_data = right_leaf;
 
+        // Update excess counters
+        if constexpr (ExcessQuerySupport) {
+          update_leaf_excess(node->left);
+          update_leaf_excess(node->right);
+          update_inner_node_excess(node);
+        }
+
         // Rebalance if necessary
         rebalance_after_insertion(node);
+      } else if constexpr (ExcessQuerySupport) {
+        // Update node
+        update_leaf_excess(node);
       }
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
       insert_at_node(node->right, i - node->num_bits_left_tree, value);
+
+      // Update excess
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
     } else {
       // Index in left subtree
       ++node->num_bits_left_tree;
       if (value) ++node->ones_in_left_tree;
       insert_at_node(node->left, i, value);
+
+      // Update excess
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
     }
   }
 
@@ -638,21 +755,39 @@ class DynamicBitVector {
         delete src;
       } else {
         // Move left leaf into right subtree
+        src->leaf_data->bv.push_back(false);  // make copy-to-back aligned
+        const SizeType to_delete = src->leaf_data->bv.size() - 1;
         src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
+        src->leaf_data->bv.delete_element(to_delete);
         delete node->leaf_data;
         node->leaf_data = src->leaf_data;
         src->parent->left = nullptr;
         delete src;
       }
+
+      // Update excess counters
+      if constexpr (ExcessQuerySupport) {
+        update_leaf_excess(node);
+      }
     } else if (node->num_bits_left_tree <= i) {
       // Index in right subtree
       move_to_leaf(node->right, i - node->num_bits_left_tree, src,
                    num_ones_leaf, insert_back);
+
+      // Update excess counters
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
     } else {
       // Index in left subtree
       node->num_bits_left_tree += src->leaf_data->bv.size();
       node->ones_in_left_tree += num_ones_leaf;
       move_to_leaf(node->left, i, src, num_ones_leaf, insert_back);
+
+      // Update excess counters
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
     }
   }
 
@@ -678,6 +813,12 @@ class DynamicBitVector {
         // No underflow
         const bool deleted_one = node->leaf_data->bv[i];
         node->leaf_data->bv.delete_element(i);
+
+        // Update excess counters
+        if constexpr (ExcessQuerySupport) {
+          update_leaf_excess(node);
+        }
+
         return deleted_one ? LeafDeletion::DELETED_ONE
                            : LeafDeletion::DELETED_ZERO;
       }
@@ -691,6 +832,12 @@ class DynamicBitVector {
       if (deletion_successful == LeafDeletion::UNDERFLOW) {
         return LeafDeletion::UNDERFLOW;
       }
+
+      // Update excess counters
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
+
       if (deletion_successful == LeafDeletion::DELETED_ONE) {
         --ones;
       }
@@ -728,6 +875,12 @@ class DynamicBitVector {
       if (deletion_successful == LeafDeletion::UNDERFLOW) {
         return LeafDeletion::UNDERFLOW;
       }
+
+      // Update excess counters
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(node);
+      }
+
       if (deletion_successful == LeafDeletion::DELETED_ONE) {
         --node->ones_in_left_tree;
       }
@@ -799,12 +952,56 @@ class DynamicBitVector {
   }
 
   /**
-   * @brief Sequentially updates the leaf's excess counters.
+   * @brief Forward search for excess under the given node.
    *
-   * @param node The leaf node.
+   * @param node The node to start.
+   * @param pos The inclusive starting position.
+   * pos = 0 indicates downward search.
+   * @param d The excess to search for.
+   * @param downward Whether this traversal is the final downward traversal.
+   * @return The search result.
    */
-  void update_leaf_excess(Node *node) {
-    
+  SearchResult<SizeType, SignedIntType> forward_search_at_node(
+      Node *node, SizeType pos, SignedIntType d, bool downward) const {
+    if (node->leaf_data) {
+      // Scan leaf chunk-wise
+      if (pos != 0 || node->min_excess_in_block <= d) {
+        return node->leaf_data->bv.forward_search(pos, d);
+      } else {
+        // If aligned to block, return false if min excess not sufficient
+        return {0, node->block_excess, false};
+      }
+    } else if ((!downward && node->num_bits_left_tree <= pos) ||
+               (downward && node->left->min_excess_in_block > d)) {
+      // Index in right subtree or
+      // if in downward-search min-excess too high in left subtree
+      const auto res = forward_search_at_node(
+          node->right, (downward ? 0 : pos - node->num_bits_left_tree),
+          (downward ? d - node->left->block_excess : d), downward);
+      if (res.found) {
+        // Found in subtree; return position
+        return {res.position + node->num_bits_left_tree, d, true};
+      } else {
+        // Not found in right subtree; move up
+        return res;
+      }
+    } else {
+      // Index in left subtree
+      const auto res = forward_search_at_node(node->left, pos, d, downward);
+      if (res.found) {
+        // Found in left subtree; return position
+        return res;
+      } else if (res.excess + node->right->min_excess_in_block <= d) {
+        // Correct excess in neighboring right subtree;
+        // start downward search
+        const auto right_res =
+            forward_search_at_node(node->right, 0, d - res.excess, true);
+        return {right_res.position + node->num_bits_left_tree, d, true};
+      } else {
+        // Also not in right subtree; move up
+        return {0, res.excess + node->right->block_excess, false};
+      }
+    }
   }
 
  public:
@@ -836,6 +1033,11 @@ class DynamicBitVector {
       root->leaf_data = new LeafData{{}, bitvector};
       current_size = bitvector.size();
       total_ones = bitvector.num_ones();
+
+      // Update excess counters
+      if constexpr (ExcessQuerySupport) {
+        update_leaf_excess(root);
+      }
     } else {
       // Init root node
       root->leaf_data = new LeafData();
@@ -848,7 +1050,15 @@ class DynamicBitVector {
         const BlockType block_to_insert = bitvector.data.blocks[i];
         rightmost_leaf->leaf_data->bv.data.blocks.push_back(block_to_insert);
 
-        // Update counters along path to root
+        // Insert excess chunks
+        if constexpr (ExcessQuerySupport) {
+          if (i % Node::BLOCKS_PER_CHUNK == 0) {
+            rightmost_leaf->leaf_data->bv.data.chunk_array.push_back(
+                bitvector.data.chunk_array[i / Node::BLOCKS_PER_CHUNK]);
+          }
+        }
+
+        // Update counters
         const SizeType bits_inserted = remaining_size < Leaf::BLOCK_SIZE
                                            ? remaining_size
                                            : Leaf::BLOCK_SIZE;
@@ -882,11 +1092,37 @@ class DynamicBitVector {
           rightmost_leaf->right->parent = rightmost_leaf;
           rightmost_leaf->right->leaf_data = right_leaf;
 
+          // Update excess counters
+          if constexpr (ExcessQuerySupport) {
+            update_leaf_excess(rightmost_leaf->left);
+            update_leaf_excess(rightmost_leaf->right);
+            update_inner_node_excess(rightmost_leaf);
+
+            // Propagate excess to root
+            Node *current_node = rightmost_leaf;
+            while (current_node->parent) {
+              current_node = current_node->parent;
+              update_inner_node_excess(current_node);
+            }
+          }
+
           // Rebalance if necessary
           rebalance_after_insertion(rightmost_leaf);
 
           // Update rightmost leaf pointer
           rightmost_leaf = rightmost_leaf->right;
+        }
+      }
+
+      // Last leaf excess has not been updated yet
+      if constexpr (ExcessQuerySupport) {
+        update_leaf_excess(rightmost_leaf);
+
+        // Propagate excess to root
+        Node *current_node = rightmost_leaf;
+        while (current_node->parent) {
+          current_node = current_node->parent;
+          update_inner_node_excess(current_node);
         }
       }
     }
@@ -1010,6 +1246,28 @@ class DynamicBitVector {
    * @brief Pop value from the end.
    */
   void pop_back() { delete_element(current_size - 1); }
+
+  /**
+   * @brief Forward search for excess
+   *
+   * @param pos The inclusive starting position.
+   * @param d The excess to search for.
+   * @return The search result.
+   */
+  SearchResult<SizeType, SignedIntType> forward_search(SizeType pos,
+                                                       SignedIntType d) const {
+    return forward_search_at_node(root, pos, d, false);
+  }
+
+  /**
+   * @brief Returns the global excess.
+   *
+   * @return Global excess information.
+   */
+  AdditionalNodeData excess() const {
+    return {root->block_excess, root->min_excess_in_block,
+            root->num_occ_min_excess};
+  }
 
   /**
    * @brief Returns the space usage in bits.

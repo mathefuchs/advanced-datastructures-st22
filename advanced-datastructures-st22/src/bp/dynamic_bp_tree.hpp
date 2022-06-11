@@ -40,7 +40,7 @@ struct MinExcessNodeData {
   using ExcessData =
       MinExcessNodeData<BlockType, SizeType, SignedIntType, BlocksPerChunk>;
   using SimpleBitVector = bv::SimpleBitVector<
-      BlockType, SizeType,
+      BlockType, SizeType, SignedIntType,
       MinExcessBlockData<BlockType, SizeType, SignedIntType, BlocksPerChunk>,
       true>;
 
@@ -124,13 +124,15 @@ class MinExcessBlockData {
   static constexpr bool LEFT = MinExcessData::LEFT;
   static constexpr bool RIGHT = MinExcessData::RIGHT;
 
- private:
-  friend class MinExcessData::SimpleBitVector;
-
   /**
    * @brief Excess information per block to have Theta(w) operations.
    */
   std::vector<MinExcessData> chunk_array;
+
+  explicit MinExcessBlockData(SizeType initial_block_size)
+      : chunk_array(initial_block_size == 0
+                        ? 0
+                        : (initial_block_size - 1) / BLOCKS_PER_CHUNK + 1) {}
 
   /**
    * @brief Returns the space used by the additional excess information.
@@ -140,12 +142,6 @@ class MinExcessBlockData {
   SizeType space_used() const {
     return chunk_array.size() * sizeof(MinExcessData) * 8ull;
   }
-
- public:
-  explicit MinExcessBlockData(SizeType initial_block_size)
-      : chunk_array(initial_block_size == 0
-                        ? 0
-                        : (initial_block_size - 1) / BLOCKS_PER_CHUNK + 1) {}
 
   /**
    * @brief Compute the complete excess over all chunks.
@@ -188,8 +184,8 @@ template <class BlockType, class SizeType, class SignedIntType,
           SizeType MinLeafSizeBlocks, SizeType InitialLeafSizeBlocks,
           SizeType MaxLeafSizeBlocks, SizeType BlocksPerChunk>
 using DynamicMinExcessBitVector = bv::DynamicBitVector<
-    BlockType, SizeType, MinLeafSizeBlocks, InitialLeafSizeBlocks,
-    MaxLeafSizeBlocks,
+    BlockType, SizeType, SignedIntType, MinLeafSizeBlocks,
+    InitialLeafSizeBlocks, MaxLeafSizeBlocks,
     MinExcessNodeData<BlockType, SizeType, SignedIntType, BlocksPerChunk>,
     MinExcessLeafData,
     MinExcessBlockData<BlockType, SizeType, SignedIntType, BlocksPerChunk>,
@@ -229,7 +225,7 @@ class DynamicBPTree {
       MinExcessNodeData<BlockType, SizeType, SignedIntType,
                         BlocksPerChunk>::RIGHT;
   using SimpleBitVector = bv::SimpleBitVector<
-      BlockType, SizeType,
+      BlockType, SizeType, SignedIntType,
       MinExcessBlockData<BlockType, SizeType, SignedIntType, BlocksPerChunk>,
       true>;
   using BitVector =

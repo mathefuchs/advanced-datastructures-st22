@@ -11,7 +11,7 @@ namespace ads_test {
 
 template <class UnsignedT, class SignedT, UnsignedT BlocksPerChunk>
 using SimpleExcessBitVector = ads::bv::SimpleBitVector<
-    UnsignedT, UnsignedT,
+    UnsignedT, UnsignedT, SignedT,
     ads::bp::MinExcessBlockData<UnsignedT, UnsignedT, SignedT, BlocksPerChunk>,
     true>;
 
@@ -397,6 +397,90 @@ TEST(ads_test_suite, simple_excess_bitvector_copy_back_test) {
   ASSERT_EQ(bv_excess.block_excess, excess);
   ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
   ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+}
+
+static inline std::pair<bool, size_t> expected_forward_search_result(
+    bool left, const std::vector<bool> &bv, size_t start, int64_t d) {
+  int64_t excess = 0;
+  for (size_t i = start; i < bv.size(); ++i) {
+    if (bv[i] == left) {
+      ++excess;
+    } else {
+      --excess;
+    }
+    if (excess == d) {
+      return {true, i};
+    }
+  }
+  return {false, 0};
+}
+
+static inline void assert_forward_search(
+    const SimpleExcessBitVector<uint32_t, int32_t, 4> &bv,
+    const std::vector<bool> &expected, size_t start, int64_t d) {
+  auto exp =
+      expected_forward_search_result(bv.excess().LEFT, expected, start, d);
+  auto act = bv.forward_search(start, d);
+  ASSERT_EQ(exp.first, act.found);
+  ASSERT_EQ(exp.second, act.position);
+}
+
+TEST(ads_test_suite, simple_excess_bitvector_forward_search_test) {
+  srand(0);
+  const size_t n = 200000;
+  SimpleExcessBitVector<uint32_t, int32_t, 4> bv(n);
+  std::vector<bool> expected(n);
+
+  // Set values; keep track of excess
+  // to have a valid sequence of parentheses
+  {
+    size_t excess = 0;
+    for (size_t i = 0; i < n; ++i) {
+      bool value = excess > 0 ? rand() % 2 == 0 : bv.excess().LEFT;
+      if (value == bv.excess().LEFT) {
+        ++excess;
+      } else {
+        --excess;
+      }
+      expected[i] = value;
+      bv.set(i, value);
+    }
+    for (size_t i = 0; i < excess; ++i) {
+      expected.push_back(bv.excess().RIGHT);
+      bv.push_back(bv.excess().RIGHT);
+    }
+  }
+  {
+    int64_t excess = 0;
+    int64_t min_excess = 2;
+    size_t num_min = 0;
+    for (size_t j = 0; j < expected.size(); ++j) {
+      if (expected[j] == bv.excess().LEFT) {
+        ++excess;
+      } else {
+        --excess;
+      }
+
+      if (excess < min_excess) {
+        min_excess = excess;
+        num_min = 1;
+      } else if (excess == min_excess) {
+        min_excess = excess;
+        ++num_min;
+      }
+    }
+    const auto bv_excess = bv.excess().compute();
+    ASSERT_EQ(bv_excess.block_excess, excess);
+    ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
+    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
+  }
+
+  // Forward search
+  for (size_t i = 0; i < n; ++i) {
+    if (expected[i] == bv.excess().LEFT) {
+      assert_forward_search(bv, expected, i, 0);
+    }
+  }
 }
 
 }  // namespace ads_test

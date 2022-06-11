@@ -13,12 +13,26 @@ namespace ads {
 namespace bv {
 
 /**
+ * @brief Helper struct for forward and backward searches.
+ *
+ * @tparam SizeType The size type to use.
+ * @tparam SignedIntType The signed integer type to use.
+ */
+template <class SizeType, class SignedIntType>
+struct SearchResult {
+  SizeType position;
+  SignedIntType excess;
+  bool found;
+};
+
+/**
  * @brief Forward declaration.
  */
-template <class BlockType, class SizeType, SizeType MinLeafSizeBlocks,
-          SizeType InitialLeafSizeBlocks, SizeType MaxLeafSizeBlocks,
-          class AdditionalNodeData, class AdditionalLeafData,
-          class AdditionalBlockData, bool ExcessQuerySupport>
+template <class BlockType, class SizeType, class SignedIntType,
+          SizeType MinLeafSizeBlocks, SizeType InitialLeafSizeBlocks,
+          SizeType MaxLeafSizeBlocks, class AdditionalNodeData,
+          class AdditionalLeafData, class AdditionalBlockData,
+          bool ExcessQuerySupport>
 class DynamicBitVector;
 
 /**
@@ -26,8 +40,13 @@ class DynamicBitVector;
  *
  * @tparam BlockType The block type, e.g., uint64_t.
  * @tparam SizeType The size type, e.g., size_t.
+ * @tparam SignedIntType The signed integer type.
+ * @tparam AdditionalBlockData Additional data to
+ * store along the raw data blocks.
+ * @tparam ExcessQuerySupport Whether to support excess queries.
  */
 template <class BlockType, class SizeType = uint64_t,
+          class SignedIntType = int64_t,
           class AdditionalBlockData = meta::Empty<SizeType>,
           bool ExcessQuerySupport = false>
 class SimpleBitVector {
@@ -36,11 +55,14 @@ class SimpleBitVector {
    * @brief Friend class dynamic bitvector for
    * construction out of a simple vector.
    */
-  template <class BlockT, class SizeT, SizeT MinLeafSizeBlocks,
+  template <class BlockT, class SizeT, class SignedT, SizeT MinLeafSizeBlocks,
             SizeT InitialLeafSizeBlocks, SizeT MaxLeafSizeBlocks,
             class AdditionalNodeData, class AdditionalLeafData,
             class AdditionalBlockDataT, bool ExcessQuerySupportT>
   friend class DynamicBitVector;
+
+  using BitVector = SimpleBitVector<BlockType, SizeType, SignedIntType,
+                                    AdditionalBlockData, ExcessQuerySupport>;
 
   /**
    * @brief The raw block data.
@@ -51,7 +73,7 @@ class SimpleBitVector {
      * @brief Friend class dynamic bitvector for
      * construction out of a simple vector.
      */
-    template <class BlockT, class SizeT, SizeT MinLeafSizeBlocks,
+    template <class BlockT, class SizeT, class SignedT, SizeT MinLeafSizeBlocks,
               SizeT InitialLeafSizeBlocks, SizeT MaxLeafSizeBlocks,
               class AdditionalNodeData, class AdditionalLeafData,
               class AdditionalBlockDataT, bool ExcessQuerySupportT>
@@ -164,7 +186,7 @@ class SimpleBitVector {
    *
    * @return The excess functions.
    */
-  const BlockData& excess() { return data; }
+  const BlockData& excess() const { return data; }
 
   /**
    * @brief Accesses the bit vector at index i.
@@ -488,14 +510,11 @@ class SimpleBitVector {
    *
    * @return The second half.
    */
-  SimpleBitVector<BlockType, SizeType, AdditionalBlockData, ExcessQuerySupport>
-  split() {
+  BitVector split() {
     // Init new bitvector with #blocks / 2 new blocks
     // (plus one to avoid immediate allocation on insert)
     const SizeType moved_blocks = size_in_blocks() / 2;
-    SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
-                    ExcessQuerySupport>
-        split_out_bv(current_size_bits - moved_blocks * BLOCK_SIZE);
+    BitVector split_out_bv(current_size_bits - moved_blocks * BLOCK_SIZE);
 
     // Copy second half to new destination
     const SizeType previous_num_blocks = size_in_blocks();
@@ -561,9 +580,7 @@ class SimpleBitVector {
    *
    * @param other The other bitvector.
    */
-  void copy_to_back(
-      const SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
-                            ExcessQuerySupport>& other) {
+  void copy_to_back(const BitVector& other) {
     // Check that other vector is not empty
     if (other.size_in_blocks() == 0) {
       return;
@@ -582,7 +599,7 @@ class SimpleBitVector {
     if (insert_pos != 0) {
 #ifndef NDEBUG
       if constexpr (ExcessQuerySupport) {
-        throw std::invalid_argument("Non-aligned copy-back not supported.");
+        throw std::invalid_argument("Non-aligned copy-to-back not supported.");
       }
 #endif
 
@@ -640,6 +657,64 @@ class SimpleBitVector {
 
     return s;
   }
+
+  /**
+   * @brief Forward search for excess
+   *
+   * @param pos The inclusive starting position.
+   * @param d The excess to search for.
+   * @return The search result.
+   */
+  SearchResult<SizeType, SignedIntType> forward_search(SizeType pos,
+                                                       SignedIntType d) const {
+    static constexpr SizeType BITS_PER_CHUNK =
+        AdditionalBlockData::BLOCKS_PER_CHUNK * BLOCK_SIZE;
+    const SizeType chunk_idx = pos / BITS_PER_CHUNK;
+    const SizeType chunk_pos = pos % BITS_PER_CHUNK;
+
+    // Scan chunk until end
+    SignedIntType current_excess = 0;
+    if (chunk_pos != 0) {
+      for (SizeType i = pos; i < (chunk_idx + 1) * BITS_PER_CHUNK && i < size();
+           ++i) {
+        if ((*this)[i] == AdditionalBlockData::LEFT) {
+          ++current_excess;
+        } else {
+          --current_excess;
+        }
+
+        if (current_excess == d) {
+          return {i, d, true};
+        }
+      }
+    }
+
+    // If not found yet, use whole chunk information
+    SizeType c = chunk_pos != 0 ? chunk_idx + 1 : chunk_idx;
+    for (; c < data.chunk_array.size(); ++c) {
+      if (current_excess + data.chunk_array[c].min_excess_in_block <= d) {
+        break;
+      }
+      current_excess += data.chunk_array[c].block_excess;
+    }
+
+    // If found chunk with desired excess, scan it
+    for (SizeType i = c * BITS_PER_CHUNK;
+         i < (c + 1) * BITS_PER_CHUNK && i < size(); ++i) {
+      if ((*this)[i] == AdditionalBlockData::LEFT) {
+        ++current_excess;
+      } else {
+        --current_excess;
+      }
+
+      if (current_excess == d) {
+        return {i, d, true};
+      }
+    }
+
+    // Did not find d; returning current excess and next position
+    return {0, current_excess, false};
+  }
 };
 
 /**
@@ -647,10 +722,11 @@ class SimpleBitVector {
  *
  * @tparam BlockType The block type.
  */
-template <class BlockType, class SizeType, class AdditionalBlockData,
-          bool ExcessQuerySupport>
-constexpr SizeType SimpleBitVector<BlockType, SizeType, AdditionalBlockData,
-                                   ExcessQuerySupport>::BLOCK_SIZE;
+template <class BlockType, class SizeType, class SignedIntType,
+          class AdditionalBlockData, bool ExcessQuerySupport>
+constexpr SizeType
+    SimpleBitVector<BlockType, SizeType, SignedIntType, AdditionalBlockData,
+                    ExcessQuerySupport>::BLOCK_SIZE;
 
 }  // namespace bv
 }  // namespace ads
