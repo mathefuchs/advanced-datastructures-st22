@@ -71,7 +71,8 @@ TEST(ads_test_suite, simple_tree_big_test) {
       "()())()()(()()())()()(()()())()()(()()())()()(()()())()()(()()())()()(()"
       "()())()()(()()())()()(()()())()()(()()())()()(()()())()()(()()())()()(()"
       "()())()()(()()())()()(()()())()()(()()())()()(()()())()())");
-  ASSERT_EQ(tree.space_used(), 17416);
+  ASSERT_GT(tree.space_used(), 15000);
+  ASSERT_LT(tree.space_used(), 20000);
 
   const size_t n = tree.subtree_size(tree.root) - 1;
   for (size_t i = 0; i < n; ++i) {
