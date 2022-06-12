@@ -253,9 +253,18 @@ class DynamicBPTree {
    * @brief Returns the i-th child of the given node.
    *
    * @param node The node.
+   * @param i The i-th child (one-based index).
    * @return The i-th child.
    */
-  SizeType i_th_child(SizeType node) const;
+  SizeType i_th_child(SizeType node, SizeType i) const {
+    SizeType child_idx = 1;
+    SizeType current_child = node + 1;
+    while (child_idx != i) {
+      current_child = bitvector->forward_search(current_child, 0).position + 1;
+      ++child_idx;
+    }
+    return current_child;
+  }
 
   /**
    * @brief Returns the parent node.
@@ -263,7 +272,9 @@ class DynamicBPTree {
    * @param node The node.
    * @return The parent node.
    */
-  SizeType parent(SizeType node) const;
+  SizeType parent(SizeType node) const {
+    return bitvector->backward_search(node, -1).position;
+  }
 
   /**
    * @brief The size of the subtree under the given node.
@@ -271,24 +282,73 @@ class DynamicBPTree {
    * @param node The node.
    * @return The subtree size.
    */
-  SizeType subtree_size(SizeType node) const;
+  SizeType subtree_size(SizeType node) const {
+    return (bitvector->forward_search(node, 0).position - node + 1) / 2;
+  }
 
   /**
    * @brief Deletes the node making all its children children of its parent.
    *
    * @param node The node to delete.
    */
-  void delete_node(SizeType node);
+  void delete_node(SizeType node) {
+    const auto right_parenthesis = bitvector->forward_search(node, 0).position;
+    bitvector->delete_element(right_parenthesis);
+    bitvector->delete_element(node);
+  }
 
   /**
    * @brief Inserts a node under the given parent node as i-th child making the
-   * old i-th to (i+k-1)-th child child of the inserted node.
+   * old i-th to (i+k-1)-th children child of the inserted node.
    *
    * @param node The node under which to insert.
    * @param i As which child to insert.
    * @param k How many existing children to move under the inserted node.
    */
-  void insert_node(SizeType node, SizeType i, SizeType k);
+  void insert_node(SizeType node, SizeType i, SizeType k) {
+    // Find the i-th child
+    SizeType child_idx = 1;
+    SizeType current_child = node + 1;
+    while (child_idx != i) {
+      current_child = bitvector->forward_search(current_child, 0).position + 1;
+      ++child_idx;
+    }
+    const SizeType insert_pos = current_child;
+
+    // Find the ending of the child i+k
+    while (child_idx != i + k) {
+      current_child = bitvector->forward_search(current_child, 0).position + 1;
+      ++child_idx;
+    }
+
+    // Insert pair of parentheses
+    bitvector->insert(insert_pos, LEFT);
+    bitvector->insert(current_child + 1, RIGHT);
+  }
+
+  /**
+   * @brief The string BP representation.
+   *
+   * @return The string BP representation.
+   */
+  std::string get_bp_representation() const {
+    std::ostringstream oss;
+    for (SizeType i = 0; i < bitvector->size(); ++i) {
+      if ((*bitvector)[i] == LEFT) {
+        oss << "(";
+      } else {
+        oss << ")";
+      }
+    }
+    return oss.str();
+  }
+
+  /**
+   * @brief Returns the space used.
+   *
+   * @return The space used.
+   */
+  SizeType space_used() const { return bitvector->space_used(); }
 };
 
 }  // namespace bp

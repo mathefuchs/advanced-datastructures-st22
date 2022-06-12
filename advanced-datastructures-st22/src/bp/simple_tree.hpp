@@ -121,10 +121,12 @@ class SimpleTree {
     }
     auto it = std::find(node->parent->children.begin(),
                         node->parent->children.end(), node);
-    node->parent->children.erase(it);
+    size_t idx = std::distance(node->parent->children.begin(), it);
+    node->parent->children.erase(node->parent->children.begin() + idx);
     size_t i = 0;
     for (const auto &child : node->children) {
-      node->parent->children.insert(it + i, child);
+      node->parent->children.insert(node->parent->children.begin() + idx + i,
+                                    child);
       ++i;
     }
     delete node;

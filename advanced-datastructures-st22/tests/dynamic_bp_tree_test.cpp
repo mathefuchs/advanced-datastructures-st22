@@ -9,6 +9,8 @@
 #include <set>
 #include <vector>
 
+#include "bp/simple_tree.hpp"
+
 namespace ads_test {
 
 TEST(ads_test_suite, dynamic_bp_tree_block_excess_test) {
@@ -55,6 +57,44 @@ TEST(ads_test_suite, dynamic_bp_tree_block_excess_test) {
   ASSERT_EQ(
       ExcessData::compute_block_excess(blocks, 1, 192).min_excess_in_block,
       -64);
+}
+
+TEST(ads_test_suite, dynamic_bp_tree_insert_delete_test) {
+  srand(42);
+  ads::bp::SimpleTree expected;
+  ads::bp::DynamicBPTree<uint64_t, uint32_t, int32_t, 16, 32, 64, 8> actual;
+
+  for (size_t i = 0; i < 20000; ++i) {
+    const size_t num_children = expected.root->children.size();
+    const size_t child = num_children == 0 ? 1 : (rand() % num_children) + 1;
+    ASSERT_EQ(actual.parent(actual.i_th_child(0, child)), 0);
+
+    const size_t take_children =
+        child >= num_children ? 0 : rand() % (num_children - child);
+    expected.insert_node(expected.root, child, take_children);
+    actual.insert_node(0, child, take_children);
+    ASSERT_EQ(expected.get_bp_representation(), actual.get_bp_representation());
+    ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(0));
+    ASSERT_EQ(expected.subtree_size(expected.i_th_child(expected.root, 1)),
+              actual.subtree_size(actual.i_th_child(0, 1)));
+  }
+
+  ASSERT_EQ(expected.space_used(), 344640);
+  ASSERT_EQ(actual.space_used(), 61696);
+  ASSERT_GT(expected.space_used(), actual.space_used());
+
+  const size_t n = expected.subtree_size(expected.root) - 1;
+  for (size_t i = 0; i < n; ++i) {
+    const size_t num_children = expected.root->children.size();
+    const size_t child = (rand() % num_children) + 1;
+    expected.delete_node(expected.i_th_child(expected.root, child));
+    actual.delete_node(actual.i_th_child(0, child));
+    expected.i_th_child(expected.root, child);
+    ASSERT_EQ(expected.get_bp_representation(), actual.get_bp_representation());
+    ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(0));
+  }
+  ASSERT_EQ(expected.get_bp_representation(), "()");
+  ASSERT_EQ(actual.get_bp_representation(), "()");
 }
 
 }  // namespace ads_test
