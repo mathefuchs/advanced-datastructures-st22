@@ -956,7 +956,6 @@ class DynamicBitVector {
    *
    * @param node The node to start.
    * @param pos The inclusive starting position.
-   * pos = 0 indicates downward search.
    * @param d The excess to search for.
    * @param downward Whether this traversal is the final downward traversal.
    * @return The search result.
@@ -1000,6 +999,77 @@ class DynamicBitVector {
       } else {
         // Also not in right subtree; move up
         return {0, res.excess + node->right->block_excess, false};
+      }
+    }
+  }
+
+  /**
+   * @brief Backward search for excess under the given node.
+   *
+   * @param node The node to start.
+   * @param size_in_node The number of bits within this node.
+   * @param pos The exclusive starting position.
+   * @param d The excess to search for.
+   * @param downward Whether this traversal is the final downward traversal.
+   * @return The search result.
+   */
+  SearchResult<SizeType, SignedIntType> backward_search_at_node(
+      Node *node, SizeType size_in_node, SizeType pos, SignedIntType d,
+      bool downward) const {
+    if (node->leaf_data) {
+      // Scan leaf chunk-wise
+      if (!downward || node->min_excess_in_block - node->block_excess <= d) {
+        return node->leaf_data->bv.backward_search(
+            downward ? size_in_node : pos, d);
+      } else {
+        // If aligned to block, return false if min excess not sufficient
+        return {0, d + node->block_excess, false};
+      }
+    } else if ((!downward && node->num_bits_left_tree <= pos) ||
+               (downward &&
+                node->right->min_excess_in_block - node->right->block_excess <=
+                    d)) {
+      // Index in right subtree
+      const auto res = backward_search_at_node(
+          node->right, size_in_node - node->num_bits_left_tree,
+          (downward ? size_in_node - node->num_bits_left_tree
+                    : pos - node->num_bits_left_tree),
+          d, downward);
+      if (res.found) {
+        // Found in right subtree; return position
+        return {res.position + node->num_bits_left_tree, d, true};
+      } else if (res.excess - node->left->block_excess +
+                     node->left->min_excess_in_block <=
+                 d) {
+        // Correct excess in neighboring left subtree;
+        // start downward search
+        const auto left_res = backward_search_at_node(
+            node->left, node->num_bits_left_tree, node->num_bits_left_tree,
+            d - res.excess, true);
+        return {left_res.position, d, true};
+      } else if (res.excess - node->left->block_excess == d) {
+        // Reaching excess exactly at start of left tree
+        return {0, d, true};
+      } else {
+        // Also not in left subtree; move up
+        return {0, res.excess - node->left->block_excess, false};
+      }
+    } else if (downward && -node->right->block_excess == d) {
+      // Reaching excess at start of right subtree
+      return {node->num_bits_left_tree, d, true};
+    } else {
+      // Index in left subtree or
+      // if in downward-search min-excess too high in left subtree
+      const auto res = backward_search_at_node(
+          node->left, node->num_bits_left_tree,
+          (downward ? node->num_bits_left_tree : pos),
+          (downward ? d + node->right->block_excess : d), downward);
+      if (res.found) {
+        // Found in subtree; return position
+        return {res.position, d, true};
+      } else {
+        // Not found in left subtree; move up
+        return res;
       }
     }
   }
@@ -1257,6 +1327,18 @@ class DynamicBitVector {
   SearchResult<SizeType, SignedIntType> forward_search(SizeType pos,
                                                        SignedIntType d) const {
     return forward_search_at_node(root, pos, d, false);
+  }
+
+  /**
+   * @brief Backward search for excess
+   *
+   * @param pos The exclusive starting position.
+   * @param d The excess to search for.
+   * @return The search result.
+   */
+  SearchResult<SizeType, SignedIntType> backward_search(SizeType pos,
+                                                        SignedIntType d) const {
+    return backward_search_at_node(root, current_size, pos, d, false);
   }
 
   /**

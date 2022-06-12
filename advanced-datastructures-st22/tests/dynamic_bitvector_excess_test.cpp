@@ -48,6 +48,22 @@ static inline std::pair<bool, size_t> expected_forward_search_result(
   return {false, 0};
 }
 
+static inline std::pair<bool, int64_t> expected_backward_search_result(
+    bool left, const std::vector<bool> &bv, size_t start, int64_t d) {
+  int64_t excess = 0;
+  for (int64_t i = start - 1; i >= 0; --i) {
+    if (bv[i] == left) {
+      --excess;
+    } else {
+      ++excess;
+    }
+    if (excess == d) {
+      return {true, i};
+    }
+  }
+  return {false, 0};
+}
+
 TEST(ads_test_suite, dynamic_excess_bitvector_set_and_forward_search_test) {
   srand(0);
   const size_t n = 1000000;
@@ -282,7 +298,7 @@ TEST(ads_test_suite, dynamic_excess_bitvector_mixed_insert_delete_test) {
   DynamicMinExcessBitVector<uint32_t, uint32_t, int32_t, 1, 2, 4, 1> bv;
   std::vector<bool> expected;
 
-  for (size_t i = 0; i < 5000; ++i) {
+  for (size_t i = 0; i < 10000; ++i) {
     // Inserts
     for (size_t j = 0; j < 3; ++j) {
       uint64_t insert_pos1 = rand() % (bv.size() + 1);
@@ -310,26 +326,40 @@ TEST(ads_test_suite, dynamic_excess_bitvector_mixed_insert_delete_test) {
 
     // Check
     ASSERT_EQ(expected.size(), bv.size());
-    for (size_t i = 0; i < bv.size(); ++i) {
-      ASSERT_EQ(bv[i], expected[i]);
-    }
-    for (size_t i = 0; i < expected.size(); ++i) {
-      if (!expected[i]) {
-        auto exp = expected_forward_search_result(false, expected, i, 0);
-        auto act = bv.forward_search(i, 0);
-        ASSERT_EQ(exp.first, act.found);
-        ASSERT_EQ(exp.second, act.position);
-      }
+  }
+  for (size_t i = 0; i < bv.size(); ++i) {
+    ASSERT_EQ(bv[i], expected[i]);
+  }
+  for (size_t i = 0; i < expected.size(); ++i) {
+    if (!expected[i]) {
+      auto exp = expected_forward_search_result(false, expected, i, 0);
+      auto act = bv.forward_search(i, 0);
+      ASSERT_EQ(exp.first, act.found);
+      ASSERT_EQ(exp.second, act.position);
+    } else {
+      // find opening parenthesis
+      auto exp0 =
+          expected_backward_search_result(bv.excess().LEFT, expected, i, -1);
+      auto act0 = bv.backward_search(i, -1);
+      ASSERT_EQ(exp0.first, act0.found);
+      ASSERT_EQ(exp0.second, act0.position);
+
+      // find enclosing left parenthesis
+      auto exp1 =
+          expected_backward_search_result(bv.excess().LEFT, expected, i, -2);
+      auto act1 = bv.backward_search(i, -2);
+      ASSERT_EQ(exp1.first, act1.found);
+      ASSERT_EQ(exp1.second, act1.position);
     }
   }
 
-  ASSERT_EQ(bv.size(), 20000);
-  ASSERT_EQ(expected.size(), 20000);
+  ASSERT_EQ(bv.size(), 40000);
+  ASSERT_EQ(expected.size(), 40000);
   for (size_t i = 0; i < bv.size(); ++i) {
     ASSERT_EQ(bv[i], expected[i]);
   }
 
-  for (size_t i = 0; i < 5000; ++i) {
+  for (size_t i = 0; i < 10000; ++i) {
     // Insert
     uint64_t insert_pos1 = rand() % (bv.size() + 1);
     bv.insert(insert_pos1, false);
@@ -354,6 +384,13 @@ TEST(ads_test_suite, dynamic_excess_bitvector_mixed_insert_delete_test) {
       auto act = bv.forward_search(pos, 0);
       ASSERT_EQ(exp.first, act.found);
       ASSERT_EQ(exp.second, act.position);
+      auto exp_back =
+          expected_backward_search_result(false, expected, exp.second, -1);
+      auto act_back = bv.backward_search(act.position, -1);
+      ASSERT_EQ(exp_back.first, act_back.found);
+      ASSERT_EQ(exp_back.second, act_back.position);
+      ASSERT_EQ(act_back.position, pos);
+
       expected.erase(expected.begin() + exp.second);
       expected.erase(expected.begin() + pos);
       bv.delete_element(act.position);
@@ -433,6 +470,20 @@ TEST(ads_test_suite,
       auto act = bv.forward_search(i, 0);
       ASSERT_EQ(exp.first, act.found);
       ASSERT_EQ(exp.second, act.position);
+    } else {
+      // find opening parenthesis
+      auto exp0 =
+          expected_backward_search_result(bv.excess().LEFT, expected, i, -1);
+      auto act0 = bv.backward_search(i, -1);
+      ASSERT_EQ(exp0.first, act0.found);
+      ASSERT_EQ(exp0.second, act0.position);
+
+      // find enclosing left parenthesis
+      auto exp1 =
+          expected_backward_search_result(bv.excess().LEFT, expected, i, -2);
+      auto act1 = bv.backward_search(i, -2);
+      ASSERT_EQ(exp1.first, act1.found);
+      ASSERT_EQ(exp1.second, act1.position);
     }
   }
 }

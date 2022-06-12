@@ -733,7 +733,6 @@ class SimpleBitVector {
     static constexpr SizeType BITS_PER_CHUNK =
         AdditionalBlockData::BLOCKS_PER_CHUNK * BLOCK_SIZE;
     const SizeType chunk_idx = pos / BITS_PER_CHUNK;
-    const SizeType chunk_pos = pos % BITS_PER_CHUNK;
 
     // Scan chunk until start
     SignedIntType current_excess = 0;
