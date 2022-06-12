@@ -746,12 +746,16 @@ class DynamicBitVector {
         src->parent->right = nullptr;
         delete src;
       } else {
-        // Move left leaf into right subtree;
-        // make copy-to-back aligned
-        src->leaf_data->bv.push_back(false, false);
-        const SizeType to_delete = src->leaf_data->bv.size() - 1;
-        src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
-        src->leaf_data->bv.delete_element(to_delete);
+        // Move left leaf into right subtree
+        if constexpr (ExcessQuerySupport) {
+          // Make copy-to-back aligned
+          src->leaf_data->bv.push_back(false, false);
+          const SizeType to_delete = src->leaf_data->bv.size() - 1;
+          src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
+          src->leaf_data->bv.delete_element(to_delete);
+        } else {
+          src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
+        }
         delete node->leaf_data;
         node->leaf_data = src->leaf_data;
         src->parent->left = nullptr;
