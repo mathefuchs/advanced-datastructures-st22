@@ -415,14 +415,20 @@ static inline std::pair<bool, size_t> expected_forward_search_result(
   return {false, 0};
 }
 
-static inline void assert_forward_search(
-    const SimpleExcessBitVector<uint32_t, int32_t, 4> &bv,
-    const std::vector<bool> &expected, size_t start, int64_t d) {
-  auto exp =
-      expected_forward_search_result(bv.excess().LEFT, expected, start, d);
-  auto act = bv.forward_search(start, d);
-  ASSERT_EQ(exp.first, act.found);
-  ASSERT_EQ(exp.second, act.position);
+static inline std::pair<bool, int64_t> expected_backward_search_result(
+    bool left, const std::vector<bool> &bv, size_t start, int64_t d) {
+  int64_t excess = 0;
+  for (int64_t i = start; i >= 0; --i) {
+    if (bv[i] == left) {
+      --excess;
+    } else {
+      ++excess;
+    }
+    if (excess == d) {
+      return {true, i};
+    }
+  }
+  return {false, 0};
 }
 
 TEST(ads_test_suite, simple_excess_bitvector_forward_search_test) {
@@ -454,19 +460,42 @@ TEST(ads_test_suite, simple_excess_bitvector_forward_search_test) {
     int64_t excess = 0;
     int64_t min_excess = 2;
     size_t num_min = 0;
+    int64_t block_excess = 0;
+    int64_t block_min_excess = 2;
+    size_t block_num_min = 0;
     for (size_t j = 0; j < expected.size(); ++j) {
       if (expected[j] == bv.excess().LEFT) {
         ++excess;
+        ++block_excess;
       } else {
         --excess;
+        --block_excess;
       }
 
       if (excess < min_excess) {
         min_excess = excess;
         num_min = 1;
       } else if (excess == min_excess) {
-        min_excess = excess;
         ++num_min;
+      }
+
+      if (block_excess < block_min_excess) {
+        block_min_excess = block_excess;
+        block_num_min = 1;
+      } else if (block_excess == block_min_excess) {
+        ++block_num_min;
+      }
+
+      if (j % 128 == 127) {
+        ASSERT_EQ(bv.excess().chunk_array[j / 128].block_excess, block_excess);
+        ASSERT_EQ(bv.excess().chunk_array[j / 128].min_excess_in_block,
+                  block_min_excess);
+        ASSERT_EQ(bv.excess().chunk_array[j / 128].num_occ_min_excess,
+                  block_num_min);
+
+        block_excess = 0;
+        block_min_excess = 2;
+        block_num_min = 0;
       }
     }
     const auto bv_excess = bv.excess().compute();
@@ -478,7 +507,26 @@ TEST(ads_test_suite, simple_excess_bitvector_forward_search_test) {
   // Forward search
   for (size_t i = 0; i < n; ++i) {
     if (expected[i] == bv.excess().LEFT) {
-      assert_forward_search(bv, expected, i, 0);
+      // find closing parenthesis
+      auto exp =
+          expected_forward_search_result(bv.excess().LEFT, expected, i, 0);
+      auto act = bv.forward_search(i, 0);
+      ASSERT_EQ(exp.first, act.found);
+      ASSERT_EQ(exp.second, act.position);
+    } else {
+      // find opening parenthesis
+      auto exp0 =
+          expected_backward_search_result(bv.excess().LEFT, expected, i, 0);
+      auto act0 = bv.backward_search(i, -1);
+      ASSERT_EQ(exp0.first, act0.found);
+      ASSERT_EQ(exp0.second, act0.position);
+
+      // find enclosing left parenthesis
+      auto exp1 =
+          expected_backward_search_result(bv.excess().LEFT, expected, i, -1);
+      auto act1 = bv.backward_search(i, -2);
+      ASSERT_EQ(exp1.first, act1.found);
+      ASSERT_EQ(exp1.second, act1.position);
     }
   }
 }

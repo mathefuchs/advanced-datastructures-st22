@@ -720,6 +720,68 @@ class SimpleBitVector {
     // Did not find d; returning current excess and next position
     return {0, current_excess, false};
   }
+
+  /**
+   * @brief Backward search for excess
+   *
+   * @param pos The exclusive starting position.
+   * @param d The excess to search for.
+   * @return The search result.
+   */
+  SearchResult<SizeType, SignedIntType> backward_search(SizeType pos,
+                                                        SignedIntType d) const {
+    static constexpr SizeType BITS_PER_CHUNK =
+        AdditionalBlockData::BLOCKS_PER_CHUNK * BLOCK_SIZE;
+    const SizeType chunk_idx = pos / BITS_PER_CHUNK;
+    const SizeType chunk_pos = pos % BITS_PER_CHUNK;
+
+    // Scan chunk until start
+    SignedIntType current_excess = 0;
+    for (SignedIntType i = static_cast<SignedIntType>(pos - 1);
+         i >= chunk_idx * BITS_PER_CHUNK && i >= 0; --i) {
+      if ((*this)[i] == AdditionalBlockData::LEFT) {
+        --current_excess;
+      } else {
+        ++current_excess;
+      }
+
+      if (current_excess == d) {
+        return {static_cast<SizeType>(i), d, true};
+      }
+    }
+
+    // If not found yet, use whole chunk information
+    SignedIntType c = chunk_idx - 1;
+    for (; c >= 0; --c) {
+      const SignedIntType possible_excess =
+          current_excess - data.chunk_array[c].block_excess +
+          data.chunk_array[c].min_excess_in_block;
+      if (possible_excess <= d) {
+        break;
+      }
+      current_excess -= data.chunk_array[c].block_excess;
+      if (current_excess == d) {
+        return {static_cast<SizeType>(c * BITS_PER_CHUNK), d, true};
+      }
+    }
+
+    // If found chunk with desired excess, scan it
+    for (SignedIntType i = (c + 1) * BITS_PER_CHUNK - 1;
+         i >= c * BITS_PER_CHUNK && i >= 0; --i) {
+      if ((*this)[i] == AdditionalBlockData::LEFT) {
+        --current_excess;
+      } else {
+        ++current_excess;
+      }
+
+      if (current_excess == d) {
+        return {static_cast<SizeType>(i), d, true};
+      }
+    }
+
+    // Did not find d; returning current excess and next position
+    return {0, current_excess, false};
+  }
 };
 
 /**
