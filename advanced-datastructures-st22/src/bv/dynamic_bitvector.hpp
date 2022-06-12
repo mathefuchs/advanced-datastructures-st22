@@ -133,19 +133,12 @@ class DynamicBitVector {
    */
   void update_inner_node_excess(Node *node) {
     node->block_excess = node->left->block_excess + node->right->block_excess;
-    if (node->left->min_excess_in_block <
+    if (node->left->min_excess_in_block <=
         node->left->block_excess + node->right->min_excess_in_block) {
       node->min_excess_in_block = node->left->min_excess_in_block;
-      node->num_occ_min_excess = node->left->num_occ_min_excess;
-    } else if (node->left->min_excess_in_block ==
-               node->left->block_excess + node->right->min_excess_in_block) {
-      node->min_excess_in_block = node->left->min_excess_in_block;
-      node->num_occ_min_excess =
-          node->left->num_occ_min_excess + node->right->num_occ_min_excess;
     } else {
       node->min_excess_in_block =
           node->left->block_excess + node->right->min_excess_in_block;
-      node->num_occ_min_excess = node->right->num_occ_min_excess;
     }
   }
 
@@ -158,7 +151,6 @@ class DynamicBitVector {
     const auto excess = node->leaf_data->bv.excess().compute();
     node->block_excess = excess.block_excess;
     node->min_excess_in_block = excess.min_excess_in_block;
-    node->num_occ_min_excess = excess.num_occ_min_excess;
   }
 
   /**
@@ -754,8 +746,9 @@ class DynamicBitVector {
         src->parent->right = nullptr;
         delete src;
       } else {
-        // Move left leaf into right subtree
-        src->leaf_data->bv.push_back(false);  // make copy-to-back aligned
+        // Move left leaf into right subtree;
+        // make copy-to-back aligned
+        src->leaf_data->bv.push_back(false, false);
         const SizeType to_delete = src->leaf_data->bv.size() - 1;
         src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
         src->leaf_data->bv.delete_element(to_delete);
@@ -1341,8 +1334,7 @@ class DynamicBitVector {
    * @return Global excess information.
    */
   AdditionalNodeData excess() const {
-    return {root->block_excess, root->min_excess_in_block,
-            root->num_occ_min_excess};
+    return {root->block_excess, root->min_excess_in_block};
   }
 
   /**

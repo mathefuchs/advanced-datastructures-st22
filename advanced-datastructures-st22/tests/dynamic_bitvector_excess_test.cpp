@@ -92,7 +92,6 @@ TEST(ads_test_suite, dynamic_excess_bitvector_set_and_forward_search_test) {
   {
     int64_t excess = 0;
     int64_t min_excess = 2;
-    size_t num_min = 0;
     for (size_t j = 0; j < expected.size(); ++j) {
       if (!expected[j]) {
         ++excess;
@@ -102,16 +101,11 @@ TEST(ads_test_suite, dynamic_excess_bitvector_set_and_forward_search_test) {
 
       if (excess < min_excess) {
         min_excess = excess;
-        num_min = 1;
-      } else if (excess == min_excess) {
-        min_excess = excess;
-        ++num_min;
       }
     }
     const auto bv_excess = bv.excess();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 
   // Forward search
@@ -158,7 +152,6 @@ TEST(ads_test_suite, dynamic_excess_bitvector_copy_and_forward_search_test) {
   {
     int64_t excess = 0;
     int64_t min_excess = 2;
-    size_t num_min = 0;
     for (size_t j = 0; j < expected.size(); ++j) {
       if (!expected[j]) {
         ++excess;
@@ -168,16 +161,11 @@ TEST(ads_test_suite, dynamic_excess_bitvector_copy_and_forward_search_test) {
 
       if (excess < min_excess) {
         min_excess = excess;
-        num_min = 1;
-      } else if (excess == min_excess) {
-        min_excess = excess;
-        ++num_min;
       }
     }
     const auto bv_excess = bv.excess();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 
   // Forward search
@@ -210,7 +198,6 @@ TEST(ads_test_suite,
   {
     int64_t excess = 0;
     int64_t min_excess = 2;
-    size_t num_min = 0;
     for (size_t j = 0; j < expected.size(); ++j) {
       if (!expected[j]) {
         ++excess;
@@ -220,16 +207,11 @@ TEST(ads_test_suite,
 
       if (excess < min_excess) {
         min_excess = excess;
-        num_min = 1;
-      } else if (excess == min_excess) {
-        min_excess = excess;
-        ++num_min;
       }
     }
     const auto bv_excess = bv.excess();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 
   // Forward search
@@ -440,7 +422,6 @@ TEST(ads_test_suite,
   {
     int64_t excess = 0;
     int64_t min_excess = 2;
-    size_t num_min = 0;
     for (size_t j = 0; j < expected.size(); ++j) {
       if (!expected[j]) {
         ++excess;
@@ -450,16 +431,11 @@ TEST(ads_test_suite,
 
       if (excess < min_excess) {
         min_excess = excess;
-        num_min = 1;
-      } else if (excess == min_excess) {
-        min_excess = excess;
-        ++num_min;
       }
     }
     const auto bv_excess = bv.excess();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 
   // Forward search

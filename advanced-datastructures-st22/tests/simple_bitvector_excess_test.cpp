@@ -23,7 +23,6 @@ TEST(ads_test_suite, simple_excess_bitvector_empty_test) {
   const auto excess = bv.excess().compute();
   ASSERT_EQ(excess.block_excess, 0);
   ASSERT_EQ(excess.min_excess_in_block, 2);
-  ASSERT_EQ(excess.num_occ_min_excess, 0);
 }
 
 TEST(ads_test_suite, simple_excess_bitvector_set_value_test) {
@@ -39,7 +38,6 @@ TEST(ads_test_suite, simple_excess_bitvector_set_value_test) {
 
     int64_t excess = 0;
     int64_t min_excess = 2;
-    size_t num_min = 0;
     for (size_t j = 0; j < n; ++j) {
       if (expected[j] == bv.excess().LEFT) {
         ++excess;
@@ -49,17 +47,12 @@ TEST(ads_test_suite, simple_excess_bitvector_set_value_test) {
 
       if (excess < min_excess) {
         min_excess = excess;
-        num_min = 1;
-      } else if (excess == min_excess) {
-        min_excess = excess;
-        ++num_min;
       }
     }
 
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 }
 
@@ -99,7 +92,6 @@ TEST(ads_test_suite, simple_excess_bitvector_flip_test) {
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 
   // Flip all and check
@@ -129,7 +121,6 @@ TEST(ads_test_suite, simple_excess_bitvector_flip_test) {
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 }
 
@@ -137,8 +128,8 @@ TEST(ads_test_suite, simple_excess_bitvector_space_used_test) {
   SimpleExcessBitVector<uint64_t, int32_t, 3> bv(10000);
   size_t block_space =
       ((10000 / 64 + 1) * sizeof(uint64_t) + sizeof(uint64_t)) * 8ull;
-  size_t excess_space = ((10000 / 64 + 1) / 3 + 1) *
-                        (2ull * sizeof(int32_t) + sizeof(uint64_t)) * 8ull;
+  size_t excess_space =
+      ((10000 / 64 + 1) / 3 + 1) * 2ull * sizeof(int32_t) * 8ull;
   ASSERT_EQ(bv.space_used(), block_space + excess_space);
 }
 
@@ -178,7 +169,6 @@ TEST(ads_test_suite, simple_excess_bitvector_insert_test) {
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 }
 
@@ -215,7 +205,6 @@ TEST(ads_test_suite, simple_excess_bitvector_delete_test) {
   const auto bv_excess = bv.excess().compute();
   ASSERT_EQ(bv_excess.block_excess, excess);
   ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-  ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
 
   // Delete until empty
   for (size_t i = 0; i < n; ++i) {
@@ -247,7 +236,6 @@ TEST(ads_test_suite, simple_excess_bitvector_delete_test) {
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 }
 
@@ -292,7 +280,6 @@ TEST(ads_test_suite, simple_excess_bitvector_split_test) {
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 
   // Split
@@ -319,7 +306,6 @@ TEST(ads_test_suite, simple_excess_bitvector_split_test) {
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
   {  // Second half
     int64_t excess = 0;
@@ -343,7 +329,6 @@ TEST(ads_test_suite, simple_excess_bitvector_split_test) {
     const auto bv_excess = snd_bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 }
 
@@ -396,7 +381,6 @@ TEST(ads_test_suite, simple_excess_bitvector_copy_back_test) {
   const auto bv_excess = bv1.excess().compute();
   ASSERT_EQ(bv_excess.block_excess, excess);
   ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-  ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
 }
 
 static inline std::pair<bool, size_t> expected_forward_search_result(
@@ -490,8 +474,6 @@ TEST(ads_test_suite, simple_excess_bitvector_forward_search_test) {
         ASSERT_EQ(bv.excess().chunk_array[j / 128].block_excess, block_excess);
         ASSERT_EQ(bv.excess().chunk_array[j / 128].min_excess_in_block,
                   block_min_excess);
-        ASSERT_EQ(bv.excess().chunk_array[j / 128].num_occ_min_excess,
-                  block_num_min);
 
         block_excess = 0;
         block_min_excess = 2;
@@ -501,7 +483,6 @@ TEST(ads_test_suite, simple_excess_bitvector_forward_search_test) {
     const auto bv_excess = bv.excess().compute();
     ASSERT_EQ(bv_excess.block_excess, excess);
     ASSERT_EQ(bv_excess.min_excess_in_block, min_excess);
-    ASSERT_EQ(bv_excess.num_occ_min_excess, num_min);
   }
 
   // Forward search

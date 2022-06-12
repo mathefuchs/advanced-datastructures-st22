@@ -130,6 +130,17 @@ class SimpleBitVector {
             data.blocks, chunk_idx, size());
   }
 
+  /**
+   * @brief Updates the excess chunk that contains the given bit position.
+   *
+   * @param i The chunk index.
+   */
+  void update_excess_chunk_chunk_idx(SizeType i) {
+    data.chunk_array[i] =
+        AdditionalBlockData::MinExcessData::compute_block_excess(data.blocks, i,
+                                                                 size());
+  }
+
  public:
   static constexpr SizeType BLOCK_SIZE =
       static_cast<SizeType>(8ull * sizeof(BlockType));
@@ -162,7 +173,6 @@ class SimpleBitVector {
         data.chunk_array[i].block_excess =
             remaining_size < bits_per_chunk ? remaining_size : bits_per_chunk;
         data.chunk_array[i].min_excess_in_block = 1;
-        data.chunk_array[i].num_occ_min_excess = 1;
         remaining_size -= bits_per_chunk;
       }
     }
@@ -205,11 +215,12 @@ class SimpleBitVector {
    * @param i The index to set.
    * @param value The value to set it to.
    */
+  template <bool ExcessUpdate = true>
   void set(SizeType i, bool value) {
     if (value) {
-      set(i);
+      set<ExcessUpdate>(i);
     } else {
-      reset(i);
+      reset<ExcessUpdate>(i);
     }
   }
 
@@ -218,12 +229,13 @@ class SimpleBitVector {
    *
    * @param i The index to set.
    */
+  template <bool ExcessUpdate = true>
   void set(SizeType i) {
     // Update block data
     data.blocks[i / BLOCK_SIZE] |= (1ull << (i % BLOCK_SIZE));
 
     // Update excess chunk
-    if constexpr (ExcessQuerySupport) {
+    if constexpr (ExcessQuerySupport && ExcessUpdate) {
       update_excess_chunk(i);
     }
   }
@@ -233,12 +245,13 @@ class SimpleBitVector {
    *
    * @param i The index to reset.
    */
+  template <bool ExcessUpdate = true>
   void reset(SizeType i) {
     // Update block data
     data.blocks[i / BLOCK_SIZE] &= ~(1ull << (i % BLOCK_SIZE));
 
     // Update excess chunk
-    if constexpr (ExcessQuerySupport) {
+    if constexpr (ExcessQuerySupport && ExcessUpdate) {
       update_excess_chunk(i);
     }
   }
@@ -264,12 +277,13 @@ class SimpleBitVector {
    *
    * @param i The bit to flip.
    */
+  template <bool ExcessUpdate = true>
   void flip(SizeType i) {
     // Update block data
     data.blocks[i / BLOCK_SIZE] ^= (1ull << (i % BLOCK_SIZE));
 
     // Update excess chunk
-    if constexpr (ExcessQuerySupport) {
+    if constexpr (ExcessQuerySupport && ExcessUpdate) {
       update_excess_chunk(i);
     }
   }
@@ -280,12 +294,13 @@ class SimpleBitVector {
    * @param i The position to insert.
    * @param value The value of the inserted element.
    */
+  template <bool ExcessUpdate = true>
   void insert(SizeType i, bool value) {
     // Update counters
     if (current_size_bits == BLOCK_SIZE * size_in_blocks()) {
       // Add new excess chunk if necessary
       if constexpr (ExcessQuerySupport) {
-        if (data.chunk_array.size() * data.BLOCKS_PER_CHUNK ==
+        if (data.chunk_array.size() * AdditionalBlockData::BLOCKS_PER_CHUNK ==
             size_in_blocks()) {
           data.chunk_array.emplace_back();
         }
@@ -295,8 +310,9 @@ class SimpleBitVector {
     }
 
     if (current_size_bits++ == i) {
-      // Appending at end does not need copying of bits
-      set(i, value);
+      // Appending at end does not need copying of bits;
+      // scans block to update excess O(w)
+      set<ExcessUpdate>(i, value);
     } else {
       // Shift everything right of inserted position in block of i
       const SizeType block_num = i / BLOCK_SIZE;
@@ -313,16 +329,96 @@ class SimpleBitVector {
       }
 
       // Set inserted element
-      set(i, value);
+      set<ExcessUpdate>(i, value);
 
+      // if constexpr (ExcessQuerySupport) {
+      //   // Update excess
+      //   SizeType last_chunk = block_num /
+      //   AdditionalBlockData::BLOCKS_PER_CHUNK; bool shifted_in_chunk =
+      //   last_block_value;
+
+      //   for (SizeType block = block_num + 1; block < size_in_blocks();
+      //        ++block) {
+      //     const bool new_last_block_value =
+      //         (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
+      //     data.blocks[block] = (data.blocks[block] << 1) & ~1ull;
+      //     set<false>(block * BLOCK_SIZE, last_block_value);
+
+      //     if (block % AdditionalBlockData::BLOCKS_PER_CHUNK ==
+      //         AdditionalBlockData::BLOCKS_PER_CHUNK - 1) {
+      //       const SizeType c = block / AdditionalBlockData::BLOCKS_PER_CHUNK;
+      //       if (c != block_num / AdditionalBlockData::BLOCKS_PER_CHUNK) {
+      //         // If not in initial block, perform update
+      //         if (shifted_in_chunk == AdditionalBlockData::LEFT) {
+      //           ++data.chunk_array[c].block_excess;
+      //           if (data.chunk_array[c].min_excess_in_block != 1) {
+      //             ++data.chunk_array[c].min_excess_in_block;
+      //           }
+      //         } else {
+      //           --data.chunk_array[c].block_excess;
+      //           if (data.chunk_array[c].min_excess_in_block == 1) {
+      //             --data.chunk_array[c].min_excess_in_block;
+      //           }
+      //           --data.chunk_array[c].min_excess_in_block;
+      //         }
+
+      //         // If block not full, do not subtract shifted out value
+      //         if ((block + 1) * BLOCK_SIZE < size()) {
+      //           if (new_last_block_value == AdditionalBlockData::LEFT) {
+      //             --data.chunk_array[c].block_excess;
+      //           } else {
+      //             // If min excess is reached at end, scan necessary
+      //             update_excess_chunk_chunk_idx(c);
+      //             // if (data.chunk_array[c].block_excess ==
+      //             //     data.chunk_array[c].min_excess_in_block) {
+      //             // } else {
+      //             //   ++data.chunk_array[c].block_excess;
+      //             //   if (data.chunk_array[c].min_excess_in_block != 1) {
+      //             //     ++data.chunk_array[c].min_excess_in_block;
+      //             //   }
+      //             // }
+      //           }
+      //         }
+
+      //         last_chunk = c;
+      //       }
+
+      //       shifted_in_chunk = new_last_block_value;
+      //     }
+
+      //     last_block_value = new_last_block_value;
+      //   }
+
+      //   // Update chunk inserted to in O(w) time
+      //   update_excess_chunk(i);
+
+      //   // If last chunk not updated yet, update it
+      //   if (data.chunk_array.size() > 1 &&
+      //       last_chunk == data.chunk_array.size() - 2) {
+      //     const SizeType c = last_chunk + 1;
+      //     if (shifted_in_chunk == AdditionalBlockData::LEFT) {
+      //       ++data.chunk_array[c].block_excess;
+      //       if (data.chunk_array[c].min_excess_in_block != 1) {
+      //         ++data.chunk_array[c].min_excess_in_block;
+      //       }
+      //     } else {
+      //       --data.chunk_array[c].block_excess;
+      //       if (data.chunk_array[c].min_excess_in_block == 1) {
+      //         --data.chunk_array[c].min_excess_in_block;
+      //       }
+      //       --data.chunk_array[c].min_excess_in_block;
+      //     }
+      //   }
+      // } else {
       // Shift all other blocks after it
       for (SizeType block = block_num + 1; block < size_in_blocks(); ++block) {
         const bool new_last_block_value =
             (*this)[block * BLOCK_SIZE + BLOCK_SIZE - 1];
         data.blocks[block] = (data.blocks[block] << 1) & ~1ull;
-        set(block * BLOCK_SIZE, last_block_value);  // TODO
+        set<ExcessUpdate>(block * BLOCK_SIZE, last_block_value);
         last_block_value = new_last_block_value;
       }
+      // }
     }
   }
 
@@ -331,13 +427,14 @@ class SimpleBitVector {
    *
    * @param i The index to delete.
    */
+  template <bool ExcessUpdate = true>
   void delete_element(SizeType i) {
     // Update counters
     --current_size_bits;
 
     if (i == current_size_bits) {
       // If deleting last element, no copying needed.
-      reset(i);
+      reset<ExcessUpdate>(i);
     } else {
       // Shift everything left of inserted position in block of i
       const SizeType block_num = i / BLOCK_SIZE;
@@ -352,7 +449,7 @@ class SimpleBitVector {
       // Shift all other blocks after it
       for (SizeType block = block_num + 1; block < size_in_blocks(); ++block) {
         // Move first bit of block to block before
-        set(last_block_pos, (*this)[block * BLOCK_SIZE]);  // TODO
+        set<ExcessUpdate>(last_block_pos, (*this)[block * BLOCK_SIZE]);
         last_block_pos += BLOCK_SIZE;
 
         // Shift complete block
@@ -360,7 +457,7 @@ class SimpleBitVector {
       }
 
       // Reset last block's last bit
-      reset(last_block_pos);
+      reset<ExcessUpdate>(last_block_pos);
     }
 
     // Delete empty blocks
@@ -568,7 +665,13 @@ class SimpleBitVector {
    *
    * @param value The value to append.
    */
-  void push_back(bool value) { insert(current_size_bits, value); }
+  void push_back(bool value, bool excess_update = true) {
+    if (excess_update) {
+      insert<true>(current_size_bits, value);
+    } else {
+      insert<false>(current_size_bits, value);
+    }
+  }
 
   /**
    * @brief Pop value from the end.
