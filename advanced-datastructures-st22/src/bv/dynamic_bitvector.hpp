@@ -1018,13 +1018,7 @@ class DynamicBitVector {
       bool downward) const {
     if (node->leaf_data) {
       // Scan leaf chunk-wise
-      if (!downward || node->min_excess_in_block - node->block_excess <= d) {
-        return node->leaf_data->bv.backward_search(
-            downward ? size_in_node : pos, d);
-      } else {
-        // If aligned to block, return false if min excess not sufficient
-        return {0, d + node->block_excess, false};
-      }
+      return node->leaf_data->bv.backward_search(pos, d);
     } else if ((!downward && node->num_bits_left_tree <= pos) ||
                (downward &&
                 node->right->min_excess_in_block - node->right->block_excess <=
