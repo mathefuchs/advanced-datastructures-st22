@@ -53,7 +53,7 @@ class SimpleTree {
    * @return The space used.
    */
   size_t space_used_at_node(Node *node) const {
-    size_t s = (node->children.capacity() + 1) * sizeof(Node *);
+    size_t s = (node->children.size() + 1) * sizeof(Node *);
     for (const auto &child : node->children) {
       s += space_used_at_node(child);
     }

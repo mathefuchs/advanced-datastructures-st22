@@ -79,7 +79,7 @@ TEST(ads_test_suite, dynamic_bp_tree_insert_delete_test) {
               actual.subtree_size(actual.i_th_child(0, 1)));
   }
 
-  ASSERT_EQ(expected.space_used(), 344640);
+  ASSERT_EQ(expected.space_used(), 320008);
   ASSERT_EQ(actual.space_used(), 61696);
   ASSERT_GT(expected.space_used(), actual.space_used());
 
