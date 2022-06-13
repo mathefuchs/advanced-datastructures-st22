@@ -349,6 +349,31 @@ class DynamicBPTree {
    * @return The space used.
    */
   SizeType space_used() const { return bitvector->space_used(); }
+
+  /**
+   * @brief Output the children sizes in pre-order depth-first-search order.
+   *
+   * @param stream The stream to output it to.
+   * @param node The node where to start.
+   */
+  void pre_order_children_sizes(std::ostream &stream, SizeType node) const {
+    // Count children
+    const SizeType end = bitvector->forward_search(node, 0).position;
+    std::vector<SizeType> children;
+    SizeType current_child = node + 1;
+    while (current_child != end) {
+      children.push_back(current_child);
+      current_child = bitvector->forward_search(current_child, 0).position + 1;
+    }
+
+    // Output number of children
+    stream << children.size() << "\n";
+
+    // Depth-first traversal
+    for (const auto &child : children) {
+      pre_order_children_sizes(stream, child);
+    }
+  }
 };
 
 }  // namespace bp

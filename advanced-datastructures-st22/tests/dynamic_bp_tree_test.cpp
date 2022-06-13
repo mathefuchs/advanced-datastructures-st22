@@ -77,6 +77,15 @@ TEST(ads_test_suite, dynamic_bp_tree_insert_delete_test) {
     ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(0));
     ASSERT_EQ(expected.subtree_size(expected.i_th_child(expected.root, 1)),
               actual.subtree_size(actual.i_th_child(0, 1)));
+
+    if (i % 100 == 0) {
+      // Compare DFS traversal strings
+      std::ostringstream oss1;
+      expected.pre_order_children_sizes(oss1);
+      std::ostringstream oss2;
+      actual.pre_order_children_sizes(oss2, 0);
+      ASSERT_EQ(oss1.str(), oss2.str());
+    }
   }
 
   // Concrete sizes implementation-specific
@@ -93,6 +102,15 @@ TEST(ads_test_suite, dynamic_bp_tree_insert_delete_test) {
     expected.i_th_child(expected.root, child);
     ASSERT_EQ(expected.get_bp_representation(), actual.get_bp_representation());
     ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(0));
+
+    if (i % 100 == 0) {
+      // Compare DFS traversal strings
+      std::ostringstream oss1;
+      expected.pre_order_children_sizes(oss1);
+      std::ostringstream oss2;
+      actual.pre_order_children_sizes(oss2, 0);
+      ASSERT_EQ(oss1.str(), oss2.str());
+    }
   }
   ASSERT_EQ(expected.get_bp_representation(), "()");
   ASSERT_EQ(actual.get_bp_representation(), "()");

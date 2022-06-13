@@ -60,6 +60,20 @@ class SimpleTree {
     return s;
   }
 
+  /**
+   * @brief Output the children sizes in pre-order depth-first-search order.
+   *
+   * @param stream The stream to output it to.
+   * @param node The node where to start.
+   */
+  void pre_order_children_sizes_at_node(std::ostream &stream,
+                                        Node *node) const {
+    stream << node->children.size() << "\n";
+    for (const auto &child : node->children) {
+      pre_order_children_sizes_at_node(stream, child);
+    }
+  }
+
  public:
   Node *root;
 
@@ -168,6 +182,16 @@ class SimpleTree {
    * @return The space used.
    */
   size_t space_used() const { return space_used_at_node(root); }
+
+  /**
+   * @brief Puts the children sizes in pre-order depth-first-search order onto
+   * the given stream.
+   *
+   * @param stream The stream to put the sizes to.
+   */
+  void pre_order_children_sizes(std::ostream &stream) const {
+    pre_order_children_sizes_at_node(stream, root);
+  }
 };
 
 }  // namespace bp
