@@ -16,22 +16,22 @@ TEST(ads_test_suite, bitvector_integration_test) {
   // Load expected output file
   std::ifstream expected("examples/long_output.txt");
   ASSERT_TRUE(expected.is_open());
-  std::string expected_str;
-  expected >> expected_str;
+  std::ostringstream oss_expected;
+  oss_expected << expected.rdbuf();
   expected.close();
 
   // Load actual output file
   std::ifstream actual("actual_output.txt");
   ASSERT_TRUE(actual.is_open());
-  std::string actual_str;
-  actual >> actual_str;
+  std::ostringstream oss_actual;
+  oss_actual << actual.rdbuf();
   actual.close();
 
   // Delete temp file
   std::system("rm actual_output.txt");
 
   // Check contents
-  ASSERT_EQ(expected_str, actual_str);
+  ASSERT_EQ(oss_expected.str(), oss_actual.str());
 }
 
 }  // namespace ads_test

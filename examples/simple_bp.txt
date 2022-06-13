@@ -2,4 +2,4 @@ insertchild 0 1 0
 insertchild 0 1 0
 insertchild 0 1 0
 insertchild 0 2 2
-deletenode 0 1
+deletenode 1

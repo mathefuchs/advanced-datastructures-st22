@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "bp/dynamic_bp_tree.hpp"
+#include "bp/query.hpp"
 #include "bv/dynamic_bitvector.hpp"
 #include "bv/query.hpp"
 #include "bv/simple_bitvector.hpp"
@@ -21,12 +22,14 @@
  * @param algo The algorithm used.
  * @param time The time results.
  * @param space The space results.
+ * @param params Additional parameter information.
  */
 static inline void print_results(const std::string &algo, int64_t time,
-                                 int64_t space) {
+                                 int64_t space, const std::string &params) {
   std::cout << "RESULT" << RESULT_SEP << "algo=" << algo << RESULT_SEP
             << "name=Tobias Fuchs" << RESULT_SEP << "time=" << time
-            << RESULT_SEP << "space=" << space << std::endl;
+            << RESULT_SEP << "space=" << space << RESULT_SEP << params
+            << std::endl;
 }
 
 /**
@@ -48,7 +51,8 @@ static inline void run_bv(const std::string &input_file,
                           const std::string &output_file) {
   // Prepare everything
   const auto problem_instance =
-      ads::bv::query::parse_bv_input<BlockType, SizeType>(input_file);
+      ads::bv::query::parse_bv_input<BlockType, SizeType, SignedIntType>(
+          input_file);
   std::vector<SizeType> output;
   output.reserve(problem_instance.queries.size());
 
@@ -96,7 +100,14 @@ static inline void run_bv(const std::string &input_file,
   // Print result line
   const auto time = ads::util::time_diff(start, end);
   const auto space = bv.space_used();
-  print_results("bv", time, space);
+  std::ostringstream oss;
+  oss << "param_block_type=" << typeid(BlockType).name() << RESULT_SEP
+      << "param_size_type=" << typeid(SizeType).name() << RESULT_SEP
+      << "param_signed_type=" << typeid(SignedIntType).name() << RESULT_SEP
+      << "param_min_leaf=" << MinLeafSizeBlocks << RESULT_SEP
+      << "param_initial_leaf=" << InitialLeafSizeBlocks << RESULT_SEP
+      << "param_max_leaf=" << MaxLeafSizeBlocks;
+  print_results("bv", time, space, oss.str());
 }
 
 /**
@@ -105,9 +116,57 @@ static inline void run_bv(const std::string &input_file,
  * @param input_file The input file with queries.
  * @param output_file The output file to write results to.
  */
+template <class BlockType, class SizeType, class SignedIntType,
+          SizeType MinLeafSizeBlocks, SizeType InitialLeafSizeBlocks,
+          SizeType MaxLeafSizeBlocks, SizeType BlocksPerChunk>
 static inline void run_bp(const std::string &input_file,
                           const std::string &output_file) {
-  std::cout << input_file << RESULT_SEP << output_file << std::endl;
+  // Prepare everything
+  const auto problem_instance = ads::bp::query::parse_bp_input(input_file);
+
+  // Run all queries
+  const auto start = std::chrono::high_resolution_clock::now();
+  ads::bp::DynamicBPTree<BlockType, SizeType, SignedIntType, MinLeafSizeBlocks,
+                         InitialLeafSizeBlocks, MaxLeafSizeBlocks,
+                         BlocksPerChunk>
+      bp_tree;
+  for (const auto &query : problem_instance) {
+    switch (query.type) {
+      case ads::bp::query::BPQueryType::INSERT_CHILD:
+        bp_tree.insert_node(query.first_param, query.second_param,
+                            query.third_param);
+        break;
+      case ads::bp::query::BPQueryType::DELETE_NODE:
+        bp_tree.delete_node(query.first_param);
+        break;
+      default:
+        break;
+    }
+  }
+  const auto end = std::chrono::high_resolution_clock::now();
+
+  // Write output to file
+  std::ofstream ofs(output_file);
+  if (ofs.is_open()) {
+    bp_tree.pre_order_children_sizes(ofs, 0);
+    ofs.close();
+  } else {
+    std::cerr << "Could not open result file." << std::endl;
+    ads::util::malformed_input();
+  }
+
+  // Print result line
+  const auto time = ads::util::time_diff(start, end);
+  const auto space = bp_tree.space_used();
+  std::ostringstream oss;
+  oss << "param_block_type=" << typeid(BlockType).name() << RESULT_SEP
+      << "param_size_type=" << typeid(SizeType).name() << RESULT_SEP
+      << "param_signed_type=" << typeid(SignedIntType).name() << RESULT_SEP
+      << "param_min_leaf=" << MinLeafSizeBlocks << RESULT_SEP
+      << "param_initial_leaf=" << InitialLeafSizeBlocks << RESULT_SEP
+      << "param_max_leaf=" << MaxLeafSizeBlocks << RESULT_SEP
+      << "param_chunk_size=" << BlocksPerChunk;
+  print_results("bp", time, space, oss.str());
 }
 
 /**
@@ -132,9 +191,9 @@ int main(int argc, char **argv) {
 
   // Run program
   if (bv) {
-    run_bv<uint64_t, uint64_t, int64_t, 32, 64, 128>(input_file, output_file);
+    run_bv<uint64_t, uint32_t, int32_t, 32, 64, 128>(input_file, output_file);
   } else if (bp) {
-    run_bp(input_file, output_file);
+    run_bp<uint64_t, uint32_t, int32_t, 16, 32, 64, 8>(input_file, output_file);
   } else {
     std::cerr << "Mode has to be either \"bv\" or \"bp\"." << std::endl;
     ads::util::malformed_input();

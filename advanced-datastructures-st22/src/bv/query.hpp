@@ -1,5 +1,5 @@
-#ifndef QUERY_HPP
-#define QUERY_HPP
+#ifndef BV_QUERY_HPP
+#define BV_QUERY_HPP
 
 #include <chrono>
 #include <cstdint>
@@ -161,10 +161,11 @@ struct BVQuery {
  *
  * @tparam BlockType The block type.
  * @tparam SizeType The size type.
+ * @tparam SignedIntType The signed integer type.
  */
-template <class BlockType, class SizeType>
+template <class BlockType, class SizeType, class SignedIntType>
 struct BVProblemInstance {
-  SimpleBitVector<BlockType, SizeType> bv;
+  SimpleBitVector<BlockType, SizeType, SignedIntType> bv;
   std::vector<BVQuery> queries;
 };
 
@@ -174,22 +175,23 @@ struct BVProblemInstance {
  * @param input_file_name The input file name.
  * @return The problem instance.
  */
-template <class BlockType, class SizeType>
-static inline BVProblemInstance<BlockType, SizeType> parse_bv_input(
-    const std::string& input_file_name) {
+template <class BlockType, class SizeType, class SignedIntType>
+static inline BVProblemInstance<BlockType, SizeType, SignedIntType>
+parse_bv_input(const std::string& input_file_name) {
   // Load input file into memory
   std::ifstream input_stream(input_file_name);
   if (input_stream.is_open()) {
     // Get initial bit-vector size
     std::string line;
     std::getline(input_stream, line);
-    size_t initial_size = std::stoul(line);
+    SizeType initial_size = std::stoul(line);
 
     // Create problem instance object
-    BVProblemInstance<BlockType, SizeType> instance{{initial_size}, {}};
+    BVProblemInstance<BlockType, SizeType, SignedIntType> instance{
+        {initial_size}, {}};
 
     // Parse initial bit-vector
-    size_t i = 0;
+    SizeType i = 0;
     while (i < initial_size && std::getline(input_stream, line)) {
       instance.bv.set(i, static_cast<bool>(std::stoi(line)));
       ++i;

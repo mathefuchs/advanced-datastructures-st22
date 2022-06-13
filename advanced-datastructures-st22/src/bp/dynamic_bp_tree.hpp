@@ -232,12 +232,10 @@ class DynamicBPTree {
   /**
    * @brief Constructs a new dynamic BP tree object.
    */
-  DynamicBPTree() {
+  DynamicBPTree() : bitvector(new BitVector()) {
     // BP representation of tree with only the root node
-    SimpleBitVector bv(2);
-    bv.set(0, LEFT);
-    bv.set(1, RIGHT);
-    bitvector = new BitVector(bv);
+    bitvector->insert(0, LEFT);
+    bitvector->insert(1, RIGHT);
   }
 
   DynamicBPTree(const DynamicBPTree &) = delete;
