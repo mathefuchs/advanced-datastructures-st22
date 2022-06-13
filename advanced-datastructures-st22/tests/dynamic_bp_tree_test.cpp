@@ -128,4 +128,71 @@ TEST(ads_test_suite, dynamic_bp_tree_insert_delete_test) {
   ASSERT_EQ(actual.get_bp_representation(), "()");
 }
 
+TEST(ads_test_suite, dynamic_bp_tree_generate_benchmark_test) {
+  srand(1);
+  ads::bp::SimpleTree expected;
+  ads::bp::DynamicBPTree<uint64_t, uint32_t, int32_t, 16, 32, 64, 8> actual;
+  const size_t n = 1000000;
+  for (size_t i = 0; i < n; ++i) {
+    // std::cerr << i << std::endl;
+    for (size_t j = 0; j < 3; ++j) {
+      // { //if (i == 166695) {
+      //   std::cerr << i << std::endl;
+      //   // Compare DFS traversal strings
+      //   std::ostringstream oss1;
+      //   expected.pre_order_children_sizes(oss1);
+      //   std::ostringstream oss2;
+      //   actual.pre_order_children_sizes(oss2, 0);
+      //   //ASSERT_EQ(oss1.str(), oss2.str());
+      // }
+
+      const size_t num_children = expected.root->children.size();
+      const size_t child = num_children == 0 ? 1 : (rand() % num_children) + 1;
+      const size_t take_children =
+          child >= num_children ? 0 : rand() % (num_children - child);
+      // std::cout << "insertchild 0 " << child << " " << take_children
+      //           << std::endl;
+      expected.insert_node(expected.root, child, take_children);
+
+      // { //if (i == 166695 && j >= 0) {
+      //   std::cerr << i << std::endl;
+      //   // Compare DFS traversal strings
+      //   std::ostringstream oss1;
+      //   expected.pre_order_children_sizes(oss1);
+      //   std::ostringstream oss2;
+      //   actual.pre_order_children_sizes(oss2, 0);
+      //   //ASSERT_EQ(oss1.str(), oss2.str());
+      // }
+
+      actual.insert_node(0, child, take_children);
+    }
+    {
+      const size_t num_children = expected.root->children.size();
+      const size_t child = (rand() % num_children) + 1;
+      const size_t delete_node = actual.i_th_child(0, child);
+      // std::cout << "deletenode " << delete_node << std::endl;
+      expected.delete_node(expected.i_th_child(expected.root, child));
+      actual.delete_node(delete_node);
+    }
+    // if (i == 166695) {
+    //  std::cerr << i << std::endl;
+    //  Compare DFS traversal strings
+    if (i % 10000 == 0) {
+      std::ostringstream oss1;
+      expected.pre_order_children_sizes(oss1);
+      std::ostringstream oss2;
+      actual.pre_order_children_sizes(oss2, 0);
+      ASSERT_EQ(oss1.str(), oss2.str());
+    }
+    //}
+  }
+
+  std::ostringstream oss1;
+  actual.pre_order_children_sizes(oss1, 0);
+  std::ostringstream oss2;
+  actual.pre_order_children_sizes(oss2, 0);
+  ASSERT_EQ(oss1.str(), oss2.str());
+  // std::cout << oss.str() << std::endl;
+}
+
 }  // namespace ads_test
