@@ -1,0 +1,11 @@
+
+uint64_t, uint32_t, int32_t, 1, 2, 4
+uint64_t, uint32_t, int32_t, 2, 4, 8
+uint64_t, uint32_t, int32_t, 4, 8, 16
+uint64_t, uint32_t, int32_t, 8, 16, 32
+uint64_t, uint32_t, int32_t, 16, 32, 64
+uint64_t, uint32_t, int32_t, 32, 64, 128
+uint64_t, uint32_t, int32_t, 64, 128, 256
+uint64_t, uint32_t, int32_t, 128, 256, 512
+uint64_t, uint32_t, int32_t, 256, 512, 1024
+uint64_t, uint32_t, int32_t, 512, 1024, 2048
