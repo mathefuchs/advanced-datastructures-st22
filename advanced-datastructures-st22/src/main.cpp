@@ -1,5 +1,3 @@
-#include <string.h>
-
 #include <chrono>
 #include <cstdint>
 #include <fstream>
@@ -53,8 +51,13 @@ static inline void run_bv(const std::string &input_file,
   const auto problem_instance =
       ads::bv::query::parse_bv_input<BlockType, SizeType, SignedIntType>(
           input_file);
-  std::vector<SizeType> output;
-  output.reserve(problem_instance.queries.size());
+
+  // Open output file
+  std::ofstream ofs(output_file, std::ios::trunc);
+  if (!ofs.is_open()) {
+    std::cerr << "Could not open result file." << std::endl;
+    ads::util::malformed_input();
+  }
 
   // Run all queries
   const auto start = std::chrono::high_resolution_clock::now();
@@ -74,30 +77,19 @@ static inline void run_bv(const std::string &input_file,
         bv.flip(query.first_param);
         break;
       case ads::bv::query::BVQueryType::RANK:
-        output.push_back(bv.rank(query.first_param, query.second_param));
+        ofs << bv.rank(query.first_param, query.second_param) << "\n";
         break;
       case ads::bv::query::BVQueryType::SELECT:
-        output.push_back(bv.select(query.first_param, query.second_param));
+        ofs << bv.select(query.first_param, query.second_param) << "\n";
         break;
       default:
         break;
     }
   }
-  const auto end = std::chrono::high_resolution_clock::now();
-
-  // Write output to file
-  std::ofstream ofs(output_file);
-  if (ofs.is_open()) {
-    for (const auto &query_output : output) {
-      ofs << query_output << "\n";
-    }
-    ofs.close();
-  } else {
-    std::cerr << "Could not open result file." << std::endl;
-    ads::util::malformed_input();
-  }
 
   // Print result line
+  const auto end = std::chrono::high_resolution_clock::now();
+  ofs.close();
   const auto time = ads::util::time_diff(start, end);
   const auto space = bv.space_used();
   std::ostringstream oss;
@@ -124,6 +116,13 @@ static inline void run_bp(const std::string &input_file,
   // Prepare everything
   const auto problem_instance = ads::bp::query::parse_bp_input(input_file);
 
+  // Open output file
+  std::ofstream ofs(output_file, std::ios::trunc);
+  if (!ofs.is_open()) {
+    std::cerr << "Could not open result file." << std::endl;
+    ads::util::malformed_input();
+  }
+
   // Run all queries
   const auto start = std::chrono::high_resolution_clock::now();
   ads::bp::DynamicBPTree<BlockType, SizeType, SignedIntType, MinLeafSizeBlocks,
@@ -132,30 +131,34 @@ static inline void run_bp(const std::string &input_file,
       bp_tree;
   for (const auto &query : problem_instance) {
     switch (query.type) {
+      case ads::bp::query::BPQueryType::DELETE_NODE:
+        bp_tree.delete_node(query.first_param);
+        break;
       case ads::bp::query::BPQueryType::INSERT_CHILD:
         bp_tree.insert_node(query.first_param, query.second_param,
                             query.third_param);
         break;
-      case ads::bp::query::BPQueryType::DELETE_NODE:
-        bp_tree.delete_node(query.first_param);
+      case ads::bp::query::BPQueryType::CHILD:
+        ofs << bp_tree.i_th_child(query.first_param, query.second_param)
+            << "\n";
+        break;
+      case ads::bp::query::BPQueryType::SUBTREE_SIZE:
+        ofs << bp_tree.subtree_size(query.first_param) << "\n";
+        break;
+      case ads::bp::query::BPQueryType::PARENT:
+        ofs << bp_tree.parent(query.first_param) << "\n";
         break;
       default:
         break;
     }
   }
 
-  // Write output to file
-  std::ofstream ofs(output_file);
-  if (ofs.is_open()) {
-    bp_tree.pre_order_children_sizes(ofs);
-    ofs.close();
-  } else {
-    std::cerr << "Could not open result file." << std::endl;
-    ads::util::malformed_input();
-  }
+  // Write pre-order-traversal children sizes to file
+  bp_tree.pre_order_children_sizes(ofs);
 
   // Print result line
   const auto end = std::chrono::high_resolution_clock::now();
+  ofs.close();
   const auto time = ads::util::time_diff(start, end);
   const auto space = bp_tree.space_used();
   std::ostringstream oss;

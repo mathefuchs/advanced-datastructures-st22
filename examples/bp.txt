@@ -1,5 +1,8 @@
 insertchild 0 1 0
 insertchild 0 1 0
+child 0 2
+subtree_size 0
+parent 3
 insertchild 0 2 0
 insertchild 0 3 0
 insertchild 0 4 0

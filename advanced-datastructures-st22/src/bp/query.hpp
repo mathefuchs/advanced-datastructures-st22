@@ -16,13 +16,16 @@ namespace bp {
 namespace query {
 
 /**
- * @brief Type of bit-vector queries.
+ * @brief Type of queries.
  *
- * Use 64-bit type for alignment.
+ * Use 32-bit type for alignment.
  */
 enum class BPQueryType : uint32_t {
-  INSERT_CHILD,
   DELETE_NODE,
+  INSERT_CHILD,
+  CHILD,
+  SUBTREE_SIZE,
+  PARENT,
   QUERY_TYPE_SIZE,
 };
 
@@ -34,10 +37,16 @@ enum class BPQueryType : uint32_t {
  */
 static inline std::string bp_query_type_str(BPQueryType query_type) {
   switch (query_type) {
-    case BPQueryType::INSERT_CHILD:
-      return "insertchild";
     case BPQueryType::DELETE_NODE:
       return "deletenode";
+    case BPQueryType::INSERT_CHILD:
+      return "insertchild";
+    case BPQueryType::CHILD:
+      return "child";
+    case BPQueryType::SUBTREE_SIZE:
+      return "subtree_size";
+    case BPQueryType::PARENT:
+      return "parent";
     default:
       std::cerr << "Could not parse query type." << std::endl;
       ads::util::malformed_input();
@@ -52,15 +61,28 @@ static inline std::string bp_query_type_str(BPQueryType query_type) {
  * @return true if it has a second argument.
  * @return false otherwise.
  */
-static inline bool bp_query_type_has_three_args(BPQueryType query_type) {
+static inline bool bp_query_type_has_second_arg(BPQueryType query_type) {
+  switch (query_type) {
+    case BPQueryType::INSERT_CHILD:
+    case BPQueryType::CHILD:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
+ * @brief Whether the query type has a second argument.
+ *
+ * @param query_type The query type.
+ * @return true if it has a second argument.
+ * @return false otherwise.
+ */
+static inline bool bp_query_type_has_third_arg(BPQueryType query_type) {
   switch (query_type) {
     case BPQueryType::INSERT_CHILD:
       return true;
-    case BPQueryType::DELETE_NODE:
-      return false;
     default:
-      std::cerr << "Could not parse query type." << std::endl;
-      ads::util::malformed_input();
       return false;
   }
 }
@@ -121,18 +143,21 @@ static inline std::vector<BPQuery> parse_bp_input(
 
       // Retrieve query type information
       const auto type = string_to_query_type(type_str);
-      const bool three_args = bp_query_type_has_three_args(type);
-      if (three_args) {
+      const bool second_arg = bp_query_type_has_second_arg(type);
+      const bool third_arg = bp_query_type_has_third_arg(type);
+      if (second_arg) {
         std::getline(query_str, arg2_str, ' ');
-        std::getline(query_str, arg3_str, ' ');
+        if (third_arg) {
+          std::getline(query_str, arg3_str, ' ');
+        }
       }
 
       // Parse and check types
       const auto arg1 = static_cast<uint32_t>(std::stoul(arg1_str));
       const uint32_t arg2 =
-          three_args ? static_cast<uint32_t>(std::stoul(arg2_str)) : 0u;
+          second_arg ? static_cast<uint32_t>(std::stoul(arg2_str)) : 0u;
       const uint32_t arg3 =
-          three_args ? static_cast<uint32_t>(std::stoul(arg3_str)) : 0u;
+          third_arg ? static_cast<uint32_t>(std::stoul(arg3_str)) : 0u;
 
       // Append query
       queries.push_back(BPQuery{arg1, arg2, arg3, type});

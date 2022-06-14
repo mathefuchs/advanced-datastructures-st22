@@ -748,45 +748,44 @@ class SimpleBitVector {
 
     // Scan chunk until start
     SignedIntType current_excess = 0;
-    for (SignedIntType i = static_cast<SignedIntType>(pos - 1);
-         i >= chunk_idx * BITS_PER_CHUNK && i >= 0; --i) {
-      if ((*this)[i] == AdditionalBlockData::LEFT) {
+    for (SizeType i = pos; i > chunk_idx * BITS_PER_CHUNK && i > 0; --i) {
+      if ((*this)[i - 1] == AdditionalBlockData::LEFT) {
         --current_excess;
       } else {
         ++current_excess;
       }
 
       if (current_excess == d) {
-        return {static_cast<SizeType>(i), d, true};
+        return {(i - 1), d, true};
       }
     }
 
     // If not found yet, use whole chunk information
-    SignedIntType c = chunk_idx - 1;
-    for (; c >= 0; --c) {
+    SizeType c = chunk_idx;
+    for (; c > 0; --c) {
       const SignedIntType possible_excess =
-          current_excess - data.chunk_array[c].block_excess +
-          data.chunk_array[c].min_excess_in_block;
+          current_excess - data.chunk_array[c - 1].block_excess +
+          data.chunk_array[c - 1].min_excess_in_block;
       if (possible_excess <= d) {
         break;
       }
-      current_excess -= data.chunk_array[c].block_excess;
+      current_excess -= data.chunk_array[c - 1].block_excess;
       if (current_excess == d) {
-        return {static_cast<SizeType>(c * BITS_PER_CHUNK), d, true};
+        return {(c - 1) * BITS_PER_CHUNK, d, true};
       }
     }
 
     // If found chunk with desired excess, scan it
-    for (SignedIntType i = (c + 1) * BITS_PER_CHUNK - 1;
-         i >= c * BITS_PER_CHUNK && i >= 0; --i) {
-      if ((*this)[i] == AdditionalBlockData::LEFT) {
+    for (SizeType i = c * BITS_PER_CHUNK;
+         i > 0 && (c == 0 || i > (c - 1) * BITS_PER_CHUNK); --i) {
+      if ((*this)[i - 1] == AdditionalBlockData::LEFT) {
         --current_excess;
       } else {
         ++current_excess;
       }
 
       if (current_excess == d) {
-        return {static_cast<SizeType>(i), d, true};
+        return {(i - 1), d, true};
       }
     }
 
