@@ -1,0 +1,18 @@
+uint64_t, uint32_t, int32_t, 1, 2, 4, 1
+
+uint64_t, uint32_t, int32_t, 2, 4, 8, 2
+
+uint64_t, uint32_t, int32_t, 4, 8, 16, 4
+uint64_t, uint32_t, int32_t, 8, 16, 32, 4
+uint64_t, uint32_t, int32_t, 16, 32, 64, 4
+uint64_t, uint32_t, int32_t, 32, 64, 128, 4
+uint64_t, uint32_t, int32_t, 64, 128, 256, 4
+
+uint64_t, uint32_t, int32_t, 8, 16, 32, 8
+uint64_t, uint32_t, int32_t, 16, 32, 64, 8
+uint64_t, uint32_t, int32_t, 32, 64, 128, 8
+uint64_t, uint32_t, int32_t, 64, 128, 256, 8
+
+uint64_t, uint32_t, int32_t, 16, 32, 64, 16
+uint64_t, uint32_t, int32_t, 32, 64, 128, 16
+uint64_t, uint32_t, int32_t, 64, 128, 256, 16

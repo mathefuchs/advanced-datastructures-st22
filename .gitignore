@@ -5,6 +5,8 @@ examples/bv_benchmark.txt
 examples/bv_benchmark_output.txt
 examples/bp_benchmark.txt
 examples/bp_benchmark_output.txt
+examples/big_bp_benchmark.txt
+examples/big_bp_benchmark_output.txt
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos
