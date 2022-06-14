@@ -82,13 +82,8 @@ static inline int64_t time_vector_bool(size_t n) {
 }
 
 TEST(ads_test_suite, simple_bitvector_performance) {
-#ifdef NDEBUG
-  size_t n = 100000000;
-  size_t reps = 20;
-#else
   size_t n = 1000000;
   size_t reps = 5;
-#endif
 
   // Check performance
   int64_t vector_bool_time = 0;

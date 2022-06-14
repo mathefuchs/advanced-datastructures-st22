@@ -61,12 +61,6 @@ class DynamicBitVector {
   enum class LeafDeletion { DELETED_ZERO, DELETED_ONE, UNDERFLOW };
 
   /**
-   * @brief Helper enum to determine whether a change indicates a change in
-   * related counters.
-   */
-  enum class BitChangeResult { ONE_MORE_ONE, ONE_LESS_ONE, NO_CHANGE };
-
-  /**
    * @brief Data stored per leaf.
    */
   struct LeafData : public AdditionalLeafData {
@@ -471,193 +465,6 @@ class DynamicBitVector {
   }
 
   /**
-   * @brief Recursively access block with desired bit.
-   *
-   * @param node The node where to start.
-   * @param i The bit position to find.
-   * @return true if bit is set.
-   */
-  bool access_bit(Node *node, SizeType i) const {
-    if (node->leaf_data) {
-      // Base case: If in leaf, access bit
-      return node->leaf_data->bv[i];
-    } else if (node->num_bits_left_tree <= i) {
-      // Index in right subtree
-      return access_bit(node->right, i - node->num_bits_left_tree);
-    } else {
-      // Index in left subtree
-      return access_bit(node->left, i);
-    }
-  }
-
-  /**
-   * @brief Recursively access block with desired bit.
-   *
-   * @param node The node where to start.
-   * @param i The bit position to find.
-   * @return Whether the number of ones is changed.
-   */
-  BitChangeResult set_bit(Node *node, SizeType i, bool value) {
-    if (node->leaf_data) {
-      // Base case: If in leaf, access bit
-      const bool prev_value = node->leaf_data->bv[i];
-      if (prev_value != value) {
-        node->leaf_data->bv.set(i, value);
-
-        // Update excess
-        if constexpr (ExcessQuerySupport) {
-          update_leaf_excess(node);
-        }
-      }
-
-      if (prev_value && !value) {
-        return BitChangeResult::ONE_LESS_ONE;
-      } else if (!prev_value && value) {
-        return BitChangeResult::ONE_MORE_ONE;
-      } else {
-        return BitChangeResult::NO_CHANGE;
-      }
-    } else if (node->num_bits_left_tree <= i) {
-      // Index in right subtree
-      const auto res =
-          set_bit(node->right, i - node->num_bits_left_tree, value);
-
-      // Update excess
-      if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
-      }
-
-      return res;
-    } else {
-      // Index in left subtree
-      const auto res = set_bit(node->left, i, value);
-      switch (res) {
-        case BitChangeResult::ONE_LESS_ONE:
-          --node->ones_in_left_tree;
-          break;
-        case BitChangeResult::ONE_MORE_ONE:
-          ++node->ones_in_left_tree;
-          break;
-        case BitChangeResult::NO_CHANGE:
-        default:
-          break;
-      }
-
-      // Update excess
-      if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
-      }
-
-      return res;
-    }
-  }
-
-  /**
-   * @brief Recursively access block with desired bit and flip it.
-   *
-   * @param node The node where to start.
-   * @param i The bit position to flip.
-   * @return true if bit is set afterwards.
-   */
-  bool flip_bit(Node *node, SizeType i) {
-    if (node->leaf_data) {
-      // Base case: If in leaf, flip bit
-      node->leaf_data->bv.flip(i);
-
-      // Update excess
-      if constexpr (ExcessQuerySupport) {
-        update_leaf_excess(node);
-      }
-
-      return node->leaf_data->bv[i];
-    } else if (node->num_bits_left_tree <= i) {
-      // Index in right subtree
-      const bool flipped = flip_bit(node->right, i - node->num_bits_left_tree);
-
-      // Update excess
-      if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
-      }
-
-      return flipped;
-    } else {
-      // Index in left subtree
-      const bool flipped_to_one = flip_bit(node->left, i);
-
-      if (flipped_to_one) {
-        ++node->ones_in_left_tree;
-      } else {
-        --node->ones_in_left_tree;
-      }
-
-      // Update excess
-      if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
-      }
-
-      return flipped_to_one;
-    }
-  }
-
-  /**
-   * @brief Recursively computes the number of ones/zeros until position i.
-   *
-   * @param node The node where to start.
-   * @param rank_one Whether to count ones.
-   * @param i The position until to count (exclusive).
-   * @param acc Accumulator of intermediate rank results in recursion.
-   * @return The rank.
-   */
-  SizeType rank_at_node(Node *node, bool rank_one, SizeType i,
-                        SizeType acc) const {
-    if (node->leaf_data) {
-      // Base case: If in leaf, return rank in leaf
-      return acc + (rank_one ? node->leaf_data->bv.rank_one(i)
-                             : node->leaf_data->bv.rank_zero(i));
-    } else if (node->num_bits_left_tree <= i) {
-      // Index in right subtree
-      return rank_at_node(node->right, rank_one, i - node->num_bits_left_tree,
-                          acc + (rank_one ? node->ones_in_left_tree
-                                          : node->num_bits_left_tree -
-                                                node->ones_in_left_tree));
-    } else {
-      // Index in left subtree
-      return rank_at_node(node->left, rank_one, i, acc);
-    }
-  }
-
-  /**
-   * @brief Select position of i-th one/zero under starting node.
-   *
-   * @param node The starting node.
-   * @param select_one Whether to select ones.
-   * @param i The i-th one/zero to select.
-   * @param acc Accumulator of intermediate select results in recursion.
-   * @return The select result.
-   */
-  SizeType select_at_node(Node *node, bool select_one, SizeType i,
-                          SizeType acc) const {
-    if (node->leaf_data) {
-      // Base case: If in leaf, return rank in leaf
-      return acc + (select_one ? node->leaf_data->bv.select_one(i)
-                               : node->leaf_data->bv.select_zero(i));
-    } else {
-      const SizeType relevant_bits_in_left_tree =
-          (select_one ? node->ones_in_left_tree
-                      : node->num_bits_left_tree - node->ones_in_left_tree);
-      if (relevant_bits_in_left_tree < i) {
-        // Index in right subtree
-        return select_at_node(node->right, select_one,
-                              i - relevant_bits_in_left_tree,
-                              acc + node->num_bits_left_tree);
-      } else {
-        // Index in left subtree
-        return select_at_node(node->left, select_one, i, acc);
-      }
-    }
-  }
-
-  /**
    * @brief Inserts a value at the given position under a given node.
    *
    * @param root The starting node.
@@ -665,63 +472,69 @@ class DynamicBitVector {
    * @param value The value to insert.
    */
   void insert_at_node(Node *node, SizeType i, bool value) {
-    if (node->leaf_data) {
-      // Base case: If in leaf, insert bit
-      auto *left_leaf = node->leaf_data;
-      left_leaf->bv.insert(i, value);
-
-      if (left_leaf->bv.size_in_blocks() >= MaxLeafSizeBlocks) {
-        // Split if necessary
-        auto *right_leaf = new LeafData{{}, left_leaf->bv.split()};
-
-        // Leaf node becomes inner node with two children
-        node->leaf_data = nullptr;
-        node->color = Color::RED;
-        node->num_bits_left_tree = left_leaf->bv.size();
-        node->ones_in_left_tree = left_leaf->bv.num_ones();
-
-        // Left child
-        node->left = new Node();
-        node->left->color = Color::BLACK;
-        node->left->parent = node;
-        node->left->leaf_data = left_leaf;
-
-        // Right child
-        node->right = new Node();
-        node->right->color = Color::BLACK;
-        node->right->parent = node;
-        node->right->leaf_data = right_leaf;
-
-        // Update excess counters
-        if constexpr (ExcessQuerySupport) {
-          update_leaf_excess(node->left);
-          update_leaf_excess(node->right);
-          update_inner_node_excess(node);
+    // Navigate to leaf
+    Node *current_node = node;
+    SizeType pos = i;
+    while (!current_node->leaf_data) {
+      if (current_node->num_bits_left_tree <= pos) {
+        // Index in right subtree
+        pos -= current_node->num_bits_left_tree;
+        current_node = current_node->right;
+      } else {
+        // Index in left subtree
+        ++current_node->num_bits_left_tree;
+        if (value) {
+          ++current_node->ones_in_left_tree;
         }
-
-        // Rebalance if necessary
-        rebalance_after_insertion(node);
-      } else if constexpr (ExcessQuerySupport) {
-        // Update node
-        update_leaf_excess(node);
+        current_node = current_node->left;
       }
-    } else if (node->num_bits_left_tree <= i) {
-      // Index in right subtree
-      insert_at_node(node->right, i - node->num_bits_left_tree, value);
+    }
 
-      // Update excess
+    // Base case: If in leaf, insert bit
+    auto *left_leaf = current_node->leaf_data;
+    left_leaf->bv.insert(pos, value);
+
+    if (left_leaf->bv.size_in_blocks() >= MaxLeafSizeBlocks) {
+      // Split if necessary
+      auto *right_leaf = new LeafData{{}, left_leaf->bv.split()};
+
+      // Leaf node becomes inner node with two children
+      current_node->leaf_data = nullptr;
+      current_node->color = Color::RED;
+      current_node->num_bits_left_tree = left_leaf->bv.size();
+      current_node->ones_in_left_tree = left_leaf->bv.num_ones();
+
+      // Left child
+      current_node->left = new Node();
+      current_node->left->color = Color::BLACK;
+      current_node->left->parent = current_node;
+      current_node->left->leaf_data = left_leaf;
+
+      // Right child
+      current_node->right = new Node();
+      current_node->right->color = Color::BLACK;
+      current_node->right->parent = current_node;
+      current_node->right->leaf_data = right_leaf;
+
+      // Update excess counters
       if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
+        update_leaf_excess(current_node->left);
+        update_leaf_excess(current_node->right);
+        update_inner_node_excess(current_node);
       }
-    } else {
-      // Index in left subtree
-      ++node->num_bits_left_tree;
-      if (value) ++node->ones_in_left_tree;
-      insert_at_node(node->left, i, value);
 
-      // Update excess
-      if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
+      // Rebalance if necessary
+      rebalance_after_insertion(current_node);
+    } else if constexpr (ExcessQuerySupport) {
+      // Update node
+      update_leaf_excess(current_node);
+    }
+
+    // Update excess
+    if constexpr (ExcessQuerySupport) {
+      while (current_node->parent) {
+        current_node = current_node->parent;
+        update_inner_node_excess(current_node);
       }
     }
   }
@@ -737,53 +550,53 @@ class DynamicBitVector {
    */
   void move_to_leaf(Node *node, SizeType i, Node *src, SizeType num_ones_leaf,
                     bool insert_back) {
-    if (node->leaf_data) {
-      // Base case
-      if (insert_back) {
-        // Move right leaf into left subtree
-        node->leaf_data->bv.copy_to_back(src->leaf_data->bv);
-        delete src->leaf_data;
-        src->parent->right = nullptr;
-        delete src;
+    // Navigate to leaf
+    Node *current_node = node;
+    SizeType pos = i;
+    while (!current_node->leaf_data) {
+      if (current_node->num_bits_left_tree <= pos) {
+        // Index in right subtree
+        pos -= current_node->num_bits_left_tree;
+        current_node = current_node->right;
       } else {
-        // Move left leaf into right subtree
-        if constexpr (ExcessQuerySupport) {
-          // Make copy-to-back aligned
-          src->leaf_data->bv.push_back(false, false);
-          const SizeType to_delete = src->leaf_data->bv.size() - 1;
-          src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
-          src->leaf_data->bv.delete_element(to_delete);
-        } else {
-          src->leaf_data->bv.copy_to_back(node->leaf_data->bv);
-        }
-        delete node->leaf_data;
-        node->leaf_data = src->leaf_data;
-        src->parent->left = nullptr;
-        delete src;
+        // Index in left subtree
+        current_node->num_bits_left_tree += src->leaf_data->bv.size();
+        current_node->ones_in_left_tree += num_ones_leaf;
+        current_node = current_node->left;
       }
+    }
 
-      // Update excess counters
-      if constexpr (ExcessQuerySupport) {
-        update_leaf_excess(node);
-      }
-    } else if (node->num_bits_left_tree <= i) {
-      // Index in right subtree
-      move_to_leaf(node->right, i - node->num_bits_left_tree, src,
-                   num_ones_leaf, insert_back);
-
-      // Update excess counters
-      if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
-      }
+    // Update leaf
+    if (insert_back) {
+      // Move right leaf into left subtree
+      current_node->leaf_data->bv.copy_to_back(src->leaf_data->bv);
+      delete src->leaf_data;
+      src->parent->right = nullptr;
+      delete src;
     } else {
-      // Index in left subtree
-      node->num_bits_left_tree += src->leaf_data->bv.size();
-      node->ones_in_left_tree += num_ones_leaf;
-      move_to_leaf(node->left, i, src, num_ones_leaf, insert_back);
-
-      // Update excess counters
+      // Move left leaf into right subtree
       if constexpr (ExcessQuerySupport) {
-        update_inner_node_excess(node);
+        // Make copy-to-back aligned
+        src->leaf_data->bv.push_back(false, false);
+        const SizeType to_delete = src->leaf_data->bv.size() - 1;
+        src->leaf_data->bv.copy_to_back(current_node->leaf_data->bv);
+        src->leaf_data->bv.delete_element(to_delete);
+      } else {
+        src->leaf_data->bv.copy_to_back(current_node->leaf_data->bv);
+      }
+      delete current_node->leaf_data;
+      current_node->leaf_data = src->leaf_data;
+      src->parent->left = nullptr;
+      delete src;
+    }
+
+    // Update excess
+    if constexpr (ExcessQuerySupport) {
+      update_leaf_excess(current_node);
+
+      while (current_node != node) {
+        current_node = current_node->parent;
+        update_inner_node_excess(current_node);
       }
     }
   }
@@ -1210,7 +1023,21 @@ class DynamicBitVector {
    * @return true if bit is set.
    * @return false otherwise.
    */
-  bool operator[](SizeType i) const { return access_bit(root, i); }
+  bool operator[](SizeType i) const {
+    Node *current_node = root;
+    SizeType pos = i;
+    while (!current_node->leaf_data) {
+      if (current_node->num_bits_left_tree <= pos) {
+        // Index in right subtree
+        pos -= current_node->num_bits_left_tree;
+        current_node = current_node->right;
+      } else {
+        // Index in left subtree
+        current_node = current_node->left;
+      }
+    }
+    return current_node->leaf_data->bv[pos];
+  }
 
   /**
    * @brief Sets the bit at position i.
@@ -1219,16 +1046,53 @@ class DynamicBitVector {
    * @param value The value.
    */
   void set(SizeType i, bool value) {
-    switch (set_bit(root, i, value)) {
-      case BitChangeResult::ONE_LESS_ONE:
+    // Navigate to leaf
+    Node *current_node = root;
+    SizeType pos = i;
+    while (!current_node->leaf_data) {
+      if (current_node->num_bits_left_tree <= pos) {
+        // Index in right subtree
+        pos -= current_node->num_bits_left_tree;
+        current_node = current_node->right;
+      } else {
+        // Index in left subtree
+        current_node = current_node->left;
+      }
+    }
+
+    // Set bit
+    bool before = current_node->leaf_data->bv[pos];
+    if (before != value) {
+      current_node->leaf_data->bv.set(pos, value);
+
+      const bool one_less_one = before && !value;
+      if (one_less_one) {
         --total_ones;
-        break;
-      case BitChangeResult::ONE_MORE_ONE:
+      } else {
         ++total_ones;
-        break;
-      case BitChangeResult::NO_CHANGE:
-      default:
-        break;
+      }
+
+      // Update leaf excess
+      if constexpr (ExcessQuerySupport) {
+        update_leaf_excess(current_node);
+      }
+
+      // Navigate back
+      while (current_node->parent) {
+        if (current_node->parent->left == current_node) {
+          if (one_less_one) {
+            --current_node->parent->ones_in_left_tree;
+          } else {
+            ++current_node->parent->ones_in_left_tree;
+          }
+        }
+
+        current_node = current_node->parent;
+
+        if constexpr (ExcessQuerySupport) {
+          update_inner_node_excess(current_node);
+        }
+      }
     }
   }
 
@@ -1238,10 +1102,49 @@ class DynamicBitVector {
    * @param i The position to flip.
    */
   void flip(SizeType i) {
-    if (flip_bit(root, i)) {
-      ++total_ones;
-    } else {
+    // Navigate to leaf
+    Node *current_node = root;
+    SizeType pos = i;
+    while (!current_node->leaf_data) {
+      if (current_node->num_bits_left_tree <= pos) {
+        // Index in right subtree
+        pos -= current_node->num_bits_left_tree;
+        current_node = current_node->right;
+      } else {
+        // Index in left subtree
+        current_node = current_node->left;
+      }
+    }
+
+    // Set bit
+    bool one_less_one = current_node->leaf_data->bv[pos];
+    current_node->leaf_data->bv.flip(pos);
+    if (one_less_one) {
       --total_ones;
+    } else {
+      ++total_ones;
+    }
+
+    // Update leaf excess
+    if constexpr (ExcessQuerySupport) {
+      update_leaf_excess(current_node);
+    }
+
+    // Navigate back
+    while (current_node->parent) {
+      if (current_node->parent->left == current_node) {
+        if (one_less_one) {
+          --current_node->parent->ones_in_left_tree;
+        } else {
+          ++current_node->parent->ones_in_left_tree;
+        }
+      }
+
+      current_node = current_node->parent;
+
+      if constexpr (ExcessQuerySupport) {
+        update_inner_node_excess(current_node);
+      }
     }
   }
 
@@ -1253,7 +1156,27 @@ class DynamicBitVector {
    * @return The rank.
    */
   SizeType rank(bool rank_one, SizeType i) const {
-    return rank_at_node(root, rank_one, i, 0);
+    Node *current_node = root;
+    SizeType acc = 0;
+    SizeType pos = i;
+    while (!current_node->leaf_data) {
+      if (current_node->num_bits_left_tree <= pos) {
+        // Index in right subtree
+        pos -= current_node->num_bits_left_tree;
+        if (rank_one) {
+          acc += current_node->ones_in_left_tree;
+        } else {
+          acc += current_node->num_bits_left_tree -
+                 current_node->ones_in_left_tree;
+        }
+        current_node = current_node->right;
+      } else {
+        // Index in left subtree
+        current_node = current_node->left;
+      }
+    }
+
+    return acc + current_node->leaf_data->bv.rank(rank_one, pos);
   }
 
   /**
@@ -1264,7 +1187,26 @@ class DynamicBitVector {
    * @return The select result.
    */
   SizeType select(bool select_one, SizeType i) const {
-    return select_at_node(root, select_one, i, 0);
+    Node *current_node = root;
+    SizeType acc = 0;
+    SizeType pos = i;
+    while (!current_node->leaf_data) {
+      const SizeType relevant_bits_in_left_tree =
+          (select_one ? current_node->ones_in_left_tree
+                      : current_node->num_bits_left_tree -
+                            current_node->ones_in_left_tree);
+      if (relevant_bits_in_left_tree < pos) {
+        // Index in right subtree
+        pos -= relevant_bits_in_left_tree;
+        acc += current_node->num_bits_left_tree;
+        current_node = current_node->right;
+      } else {
+        // Index in left subtree
+        current_node = current_node->left;
+      }
+    }
+
+    return acc + current_node->leaf_data->bv.select(select_one, pos);
   }
 
   /**
