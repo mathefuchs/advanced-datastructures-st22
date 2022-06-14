@@ -144,15 +144,10 @@ static inline void run_bp(const std::string &input_file,
     }
   }
 
-  // Collect output
-  std::ostringstream output_oss;
-  bp_tree.pre_order_children_sizes(output_oss, 0);
-  const auto end = std::chrono::high_resolution_clock::now();
-
   // Write output to file
   std::ofstream ofs(output_file);
   if (ofs.is_open()) {
-    ofs << output_oss.str();
+    bp_tree.pre_order_children_sizes(ofs);
     ofs.close();
   } else {
     std::cerr << "Could not open result file." << std::endl;
@@ -160,6 +155,7 @@ static inline void run_bp(const std::string &input_file,
   }
 
   // Print result line
+  const auto end = std::chrono::high_resolution_clock::now();
   const auto time = ads::util::time_diff(start, end);
   const auto space = bp_tree.space_used();
   std::ostringstream oss;

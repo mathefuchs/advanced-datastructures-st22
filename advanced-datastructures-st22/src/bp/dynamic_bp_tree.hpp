@@ -352,25 +352,47 @@ class DynamicBPTree {
    * @brief Output the children sizes in pre-order depth-first-search order.
    *
    * @param stream The stream to output it to.
-   * @param node The node where to start.
    */
-  void pre_order_children_sizes(std::ostream &stream, SizeType node) const {
-    // Count children
+  void pre_order_children_sizes(std::ostream &stream) const {
+    // Traverse children
+    SizeType current_child = 0;  // root
+    while (current_child < bitvector->size() - 1) {
+      const bool this_parenthesis = (*bitvector)[current_child];
+      const bool next_parenthesis = (*bitvector)[current_child + 1];
+
+      if (this_parenthesis == LEFT && next_parenthesis == LEFT) {
+        // Traversing child for the first time; print number of children
+        stream << num_children(current_child) << "\n";
+        ++current_child;
+      } else if (this_parenthesis == LEFT && next_parenthesis == RIGHT) {
+        // Current child has no children of its own
+        stream << "0\n";
+        current_child += 2;
+      } else if (this_parenthesis == RIGHT && next_parenthesis == LEFT) {
+        // Next sibling at next position
+        ++current_child;
+      } else {
+        // Last child; move up
+        current_child += 2;
+      }
+    }
+  }
+
+  /**
+   * @brief Returns the number of children for a given node.
+   *
+   * @param node The node.
+   * @return The number children.
+   */
+  SizeType num_children(SizeType node) const {
     const SizeType end = bitvector->forward_search(node, 0).position;
-    std::vector<SizeType> children;
+    SizeType num_children = 0;
     SizeType current_child = node + 1;
     while (current_child != end) {
-      children.push_back(current_child);
       current_child = bitvector->forward_search(current_child, 0).position + 1;
+      ++num_children;
     }
-
-    // Output number of children
-    stream << children.size() << "\n";
-
-    // Depth-first traversal
-    for (const auto &child : children) {
-      pre_order_children_sizes(stream, child);
-    }
+    return num_children;
   }
 };
 
