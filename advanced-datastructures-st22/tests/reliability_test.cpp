@@ -133,13 +133,13 @@ TEST(ads_reliability_test_suite, dynamic_bp_tree_test) {
       std::cout << (0.01f * (i / (n / 100))) << std::endl;
     }
     for (size_t j = 0; j < 3; ++j) {
-      const size_t num_children = actual.num_children(0);
+      const size_t num_children = actual.num_children(1);
       const size_t child = num_children == 0 ? 1 : (rand() % num_children) + 1;
       const size_t take_children =
           child >= num_children ? 0 : rand() % (num_children - child);
 
       if (num_children != 0) {
-        const size_t child_v = actual.i_th_child(0, child);
+        const size_t child_v = actual.i_th_child(1, child);
         const size_t num_child_child = actual.num_children(child_v);
         if (num_child_child > 0) {
           query_file << "parent " << (child_v + 1) << "\n";
@@ -148,23 +148,23 @@ TEST(ads_reliability_test_suite, dynamic_bp_tree_test) {
           query_file << "child " << child_v << " " << num_child_child << "\n";
           output_file << actual.i_th_child(child_v, num_child_child) << "\n";
         } else {
-          query_file << "parent " << actual.i_th_child(0, child) << "\n";
-          output_file << "0\n";
+          query_file << "parent " << actual.i_th_child(1, child) << "\n";
+          output_file << "1\n";
         }
       }
 
-      query_file << "insertchild 0 " << child << " " << take_children << "\n";
-      actual.insert_node(0, child, take_children);
+      query_file << "insertchild 1 " << child << " " << take_children << "\n";
+      actual.insert_node(1, child, take_children);
     }
     {
-      const size_t num_children = actual.num_children(0);
+      const size_t num_children = actual.num_children(1);
       const size_t child = (rand() % num_children) + 1;
-      const size_t delete_node = actual.i_th_child(0, child);
+      const size_t delete_node = actual.i_th_child(1, child);
       query_file << "deletenode " << delete_node << "\n";
       actual.delete_node(delete_node);
     }
 
-    query_file << "subtree_size 0\n";
+    query_file << "subtree_size 1\n";
     output_file << (((i + 1) * 2) + 1) << "\n";
 
     // Check DFS traversal string creation
