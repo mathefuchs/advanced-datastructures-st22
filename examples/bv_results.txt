@@ -48,3 +48,5 @@ RESULT	algo=bv	name=Tobias Fuchs	time=93656	space=10126272	param_block_type=y	pa
 RESULT	algo=bv	name=Tobias Fuchs	time=93610	space=10126272	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=512	param_initial_leaf=1024	param_max_leaf=2048
 RESULT	algo=bv	name=Tobias Fuchs	time=93619	space=10126272	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=512	param_initial_leaf=1024	param_max_leaf=2048
 RESULT	algo=bv	name=Tobias Fuchs	time=94039	space=10126272	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=512	param_initial_leaf=1024	param_max_leaf=2048
+RESULT	algo=bv	name=Tobias Fuchs	time=165513	space=10062656	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=1024	param_initial_leaf=2048	param_max_leaf=4096
+RESULT	algo=bv	name=Tobias Fuchs	time=317181	space=10031168	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=2048	param_initial_leaf=4096	param_max_leaf=8192

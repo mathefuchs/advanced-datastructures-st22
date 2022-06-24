@@ -194,7 +194,7 @@ int main(int argc, char **argv) {
 
   // Run program
   if (bv) {
-    run_bv<uint64_t, uint32_t, int32_t, 32, 64, 128>(input_file, output_file);
+    run_bv<uint64_t, uint32_t, int32_t, 1024, 2048, 4096>(input_file, output_file);
   } else if (bp) {
     run_bp<uint64_t, uint32_t, int32_t, 8, 16, 32, 1>(input_file, output_file);
   } else {
