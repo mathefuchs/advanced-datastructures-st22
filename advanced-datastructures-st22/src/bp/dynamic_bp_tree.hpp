@@ -275,12 +275,12 @@ class DynamicBPTree {
    */
   SizeType i_th_child(SizeType node, SizeType i) const {
     SizeType child_idx = 1;
-    SizeType current_child = bitvector->select(false, node) + 1;
+    SizeType current_child = bitvector->select(false, node + 1) + 1;
     while (child_idx != i) {
       current_child = bitvector->forward_search(current_child, 0).position + 1;
       ++child_idx;
     }
-    return bitvector->rank(false, current_child) + 1;
+    return bitvector->rank(false, current_child);
   }
 
   /**
@@ -290,8 +290,8 @@ class DynamicBPTree {
    * @return The parent node.
    */
   SizeType parent(SizeType node) const {
-    const SizeType node_pos = bitvector->select(false, node);
-    return bitvector->rank(false, bitvector->backward_search(node_pos, -1).position) + 1;
+    const SizeType node_pos = bitvector->select(false, node + 1);
+    return bitvector->rank(false, bitvector->backward_search(node_pos, -1).position);
   }
 
   /**
@@ -301,7 +301,7 @@ class DynamicBPTree {
    * @return The subtree size.
    */
   SizeType subtree_size(SizeType node) const {
-    const SizeType node_pos = bitvector->select(false, node);
+    const SizeType node_pos = bitvector->select(false, node + 1);
     return (bitvector->forward_search(node_pos, 0).position - node_pos + 1) / 2;
   }
 
@@ -311,7 +311,7 @@ class DynamicBPTree {
    * @param node The node to delete.
    */
   void delete_node(SizeType node) {
-    const SizeType node_pos = bitvector->select(false, node);
+    const SizeType node_pos = bitvector->select(false, node + 1);
     const auto right_parenthesis = bitvector->forward_search(node_pos, 0).position;
     bitvector->delete_element(right_parenthesis);
     bitvector->delete_element(node_pos);
@@ -328,7 +328,7 @@ class DynamicBPTree {
   void insert_node(SizeType node, SizeType i, SizeType k) {
     // Find the i-th child
     SizeType child_idx = 1;
-    SizeType current_child = bitvector->select(false, node) + 1;
+    SizeType current_child = bitvector->select(false, node + 1) + 1;
     while (child_idx != i) {
       current_child = bitvector->forward_search(current_child, 0).position + 1;
       ++child_idx;
@@ -407,7 +407,7 @@ class DynamicBPTree {
    * @return The number children.
    */
   SizeType num_children(SizeType node) const {
-    const SizeType node_pos = bitvector->select(false, node);
+    const SizeType node_pos = bitvector->select(false, node + 1);
     return num_children_node_pos(node_pos);
   }
 };

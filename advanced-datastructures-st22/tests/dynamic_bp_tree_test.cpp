@@ -67,18 +67,18 @@ TEST(ads_test_suite, dynamic_bp_tree_insert_delete_test) {
   for (size_t i = 0; i < 20000; ++i) {
     const size_t num_children = expected.root->children.size();
     const size_t child = num_children == 0 ? 1 : (rand() % num_children) + 1;
-    ASSERT_EQ(actual.parent(actual.i_th_child(1, child)), 1);
+    ASSERT_EQ(actual.parent(actual.i_th_child(0, child)), 0);
 
     const size_t take_children =
         child >= num_children ? 0 : rand() % (num_children - child);
     // std::cout << "insertchild 0 " << child << " " << take_children <<
     // std::endl;
     expected.insert_node(expected.root, child, take_children);
-    actual.insert_node(1, child, take_children);
+    actual.insert_node(0, child, take_children);
     ASSERT_EQ(expected.get_bp_representation(), actual.get_bp_representation());
-    ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(1));
+    ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(0));
     ASSERT_EQ(expected.subtree_size(expected.i_th_child(expected.root, 1)),
-              actual.subtree_size(actual.i_th_child(1, 1)));
+              actual.subtree_size(actual.i_th_child(0, 1)));
 
     if (i % 100 == 0) {
       // Compare DFS traversal strings
@@ -100,10 +100,10 @@ TEST(ads_test_suite, dynamic_bp_tree_insert_delete_test) {
     const size_t num_children = expected.root->children.size();
     const size_t child = (rand() % num_children) + 1;
     expected.delete_node(expected.i_th_child(expected.root, child));
-    actual.delete_node(actual.i_th_child(1, child));
+    actual.delete_node(actual.i_th_child(0, child));
     expected.i_th_child(expected.root, child);
     ASSERT_EQ(expected.get_bp_representation(), actual.get_bp_representation());
-    ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(1));
+    ASSERT_EQ(expected.subtree_size(expected.root), actual.subtree_size(0));
 
     // if (i < n / 2) {
     //   std::cout << "deletenode " << actual.i_th_child(0, child) << std::endl;

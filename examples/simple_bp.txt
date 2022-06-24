@@ -1,5 +1,5 @@
-insertchild 1 1 0
-insertchild 1 1 0
-insertchild 1 1 0
-insertchild 1 2 2
-deletenode 2
+insertchild 0 1 0
+insertchild 0 1 0
+insertchild 0 1 0
+insertchild 0 2 2
+deletenode 1
