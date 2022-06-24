@@ -201,6 +201,8 @@ class DynamicBPTree {
                 "Leaf sizes invalid.");
   static_assert(InitialLeafSizeBlocks <= 2 * MaxLeafSizeBlocks,
                 "Leaf sizes invalid.");
+  static_assert(BlocksPerChunk <= MinLeafSizeBlocks,
+                "Block chunk sizes are too big.");
   static_assert(MinLeafSizeBlocks % BlocksPerChunk == 0,
                 "Blocks have to align with chunks.");
   static_assert(InitialLeafSizeBlocks % BlocksPerChunk == 0,

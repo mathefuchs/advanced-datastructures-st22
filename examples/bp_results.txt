@@ -123,3 +123,13 @@ RESULT	algo=bp	name=Tobias Fuchs	time=22895	space=8468800	param_block_type=y	par
 RESULT	algo=bp	name=Tobias Fuchs	time=22852	space=8468800	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=64	param_initial_leaf=128	param_max_leaf=256	param_chunk_size=1
 RESULT	algo=bp	name=Tobias Fuchs	time=22889	space=8468800	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=64	param_initial_leaf=128	param_max_leaf=256	param_chunk_size=1
 RESULT	algo=bp	name=Tobias Fuchs	time=23018	space=8468800	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=64	param_initial_leaf=128	param_max_leaf=256	param_chunk_size=1
+RESULT	algo=bp	name=Tobias Fuchs	time=648912	space=4585984	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=64	param_initial_leaf=128	param_max_leaf=256	param_chunk_size=32
+RESULT	algo=bp	name=Tobias Fuchs	time=45133	space=8233248	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=128	param_initial_leaf=256	param_max_leaf=512	param_chunk_size=1
+RESULT	algo=bp	name=Tobias Fuchs	time=84929	space=6231264	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=128	param_initial_leaf=256	param_max_leaf=512	param_chunk_size=2
+RESULT	algo=bp	name=Tobias Fuchs	time=167959	space=5230240	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=128	param_initial_leaf=256	param_max_leaf=512	param_chunk_size=4
+RESULT	algo=bp	name=Tobias Fuchs	time=329884	space=4729760	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=128	param_initial_leaf=256	param_max_leaf=512	param_chunk_size=8
+RESULT	algo=bp	name=Tobias Fuchs	time=654402	space=4479520	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=128	param_initial_leaf=256	param_max_leaf=512	param_chunk_size=16
+RESULT	algo=bp	name=Tobias Fuchs	time=87822	space=8115936	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=256	param_initial_leaf=512	param_max_leaf=1024	param_chunk_size=1
+RESULT	algo=bp	name=Tobias Fuchs	time=166673	space=6114976	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=256	param_initial_leaf=512	param_max_leaf=1024	param_chunk_size=2
+RESULT	algo=bp	name=Tobias Fuchs	time=333099	space=5114464	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=256	param_initial_leaf=512	param_max_leaf=1024	param_chunk_size=4
+RESULT	algo=bp	name=Tobias Fuchs	time=663220	space=4614240	param_block_type=y	param_size_type=j	param_signed_type=i	param_min_leaf=256	param_initial_leaf=512	param_max_leaf=1024	param_chunk_size=8
