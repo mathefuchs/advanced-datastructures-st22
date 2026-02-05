@@ -11,7 +11,7 @@ jobs:
         shell: bash
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Install dependency
       run: sudo apt install lcov
@@ -26,7 +26,7 @@ jobs:
       run: GTEST_OUTPUT=xml:test-results/ GTEST_COLOR=1 ./build/advanced-datastructures-st22/tests/ads_test -V
 
     - name: Upload test results
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: test_results_xml
